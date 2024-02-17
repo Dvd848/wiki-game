@@ -8,7 +8,7 @@
 
 .word {
   display: flex;
-  margin: 0 0 0 30px;
+  margin: 0 15px 0 15px;
 }
 
 .character {
@@ -56,7 +56,7 @@
   margin-left: 1px;
 }
 
-h1, h2 {
+h1, h2, h3 {
   text-align: center;
 }
 
@@ -65,8 +65,12 @@ h1 {
 }
 
 h2 {
-  margin-bottom: 20px;
   font-size: medium;
+}
+
+h3 {
+  margin-bottom: 20px;
+  font-size: small;
 }
 
 .App button {

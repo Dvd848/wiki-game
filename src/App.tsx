@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Dispatch, SetStateAction, useRef } from 'react'
 import Header from './components/Header.tsx'
 import './App.css'
 
@@ -24,7 +24,11 @@ type ParsedQuestion = {
     pageid: number
 }
 
-
+interface GameProps {
+    question: ParsedQuestion,
+    showNewQuestion: () => void,
+    setNumQuestionsCorrect:  Dispatch<SetStateAction<number>>
+}
 
 const isLegalInput = (key: string) : boolean => {
     //return (/^[A-Za-z\u05D0-\u05EA0-9]$/.test(key))
@@ -101,7 +105,7 @@ function removeAtIndex<T>(array: T[], index: number): T[] {
     return array.filter((_, idx) => idx !== index);
 }
 
-const useGame = (question: ParsedQuestion, showNewQuestion: () => void) => {
+const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQuestionsCorrect: Dispatch<SetStateAction<number>>) => {
     const [currentGuess, setCurrentGuess] = useState<string[]>(Array.from({ length: question.solutionArray.length }, () => ''));
     const [isCorrect, setIsCorrect] = useState(false);
     const [currentIndex, setCurrentIndex] = useState(0);
@@ -148,6 +152,7 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void) => {
         if (currentGuess.join('') === question.solutionStripped) {
             setIsCorrect(true);
             setBgColor('green');
+            setNumQuestionsCorrect(prev => prev + 1);
         }
         else {
             setBgColor('red');
@@ -224,17 +229,23 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void) => {
         setCurrentIndex(() => indexNum);
     }
 
-    // if (question.solutionArray[currentIndex].is_const) {
-    //     setCurrentIndex(() => moveForward(currentIndex));
-    // }
-    
     return {currentGuess, currentIndex, isCorrect, bgColor, handleKeyup, handleCharClick, checkSolution}
 }
 
-function Game({ question, showNewQuestion }: { question: ParsedQuestion, showNewQuestion: () => void }) {
+
+
+function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) {
     const words = question.parsedTitle.split(/\s+/);
 
-    const { currentGuess, currentIndex, isCorrect, bgColor, handleKeyup, handleCharClick, checkSolution } = useGame(question, showNewQuestion);
+    // TODO: There must be a better way...
+    const { 
+        currentGuess, 
+        currentIndex, 
+        isCorrect, 
+        bgColor, 
+        handleKeyup, 
+        handleCharClick, 
+        checkSolution } = useGame(question, showNewQuestion, setNumQuestionsCorrect);
 
     useEffect(() => {
         window.addEventListener('keyup', handleKeyup)
@@ -295,6 +306,8 @@ function App(): JSX.Element {
     const [data, setData] = useState<RawQuestion[]>([]);
     const [question, setQuestion] = useState<ParsedQuestion | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
+    const [numQuestionAsked, setNumQuestionAsked] = useState<number>(0);
+    const [numQuestionCorrect, setNumQuestionCorrect] = useState<number>(0);
     
     useEffect(() => {
         fetchData();
@@ -305,13 +318,20 @@ function App(): JSX.Element {
             showNewQuestion();
         }
     }, [isLoading, data]);
+
     
     const fetchData = async (): Promise<void> => {
         try {
             //await new Promise(resolve => setTimeout(resolve, 5000));
             const response = await fetch('top_articles.json');
             const jsonData: RawQuestion[] = await response.json();
-            setData(jsonData);
+            setData(prevData => {
+                if (prevData.length != 0) {
+                    // https://stackoverflow.com/questions/61254372/
+                    setNumQuestionAsked(0);
+                }
+                return jsonData;
+            });
             setIsLoading(false);
         } catch (error) {
             console.error('Error fetching data: ', error);
@@ -356,7 +376,7 @@ function App(): JSX.Element {
                 throw new Error(`Skipping ${rawQuestion.title} since description is fully composed of digits`);
             }
 
-            const title = stripNiqqud(stripParentheses(rawQuestion.title));
+            const title = stripNiqqud(stripParentheses(rawQuestion.title)).trim();
             const description = stripNiqqud(stripParentheses(rawQuestion.extract)).replace(/ ,/g, ",").replace(/ \./g, ".").replace(/־/g, "-");
             let titleWords = title.split(/\s+/);
             titleWords = titleWords.map(word => reverseDigitSequences(word));
@@ -390,6 +410,8 @@ function App(): JSX.Element {
             setQuestion(() => {
                 return parsedQuestion
             });
+
+            setNumQuestionAsked(prev => prev + 1);
         } catch (error) {
             if (error instanceof Error) {
                 console.log(error.message);
@@ -416,6 +438,7 @@ function App(): JSX.Element {
             <div className="App">
                 <h1>מה הערך?</h1>
                 <h2>משחק זיהוי ערכים</h2>
+                <h3>תוצאה: {numQuestionCorrect}/{numQuestionAsked}</h3>
                 {isLoading ? (
                     <div id="loader">
                         <div className="spinner-border" id="loader" role="status">
@@ -424,8 +447,8 @@ function App(): JSX.Element {
                     </div>
                 ) : (
                     <div>
-                        {question && (
-                            <Game question={question} showNewQuestion={skipQuestion}/>
+                        {question && data.length > 0 && (
+                            <Game question={question} showNewQuestion={skipQuestion} setNumQuestionsCorrect={setNumQuestionCorrect}/>
                         )}
                         {data.length == 0 && <div className='game_over'>זהו. זה נגמר. סיימתם הכל. נראה אתכם מחר?</div>}
                         <div style={{textAlign: "center"}}>
