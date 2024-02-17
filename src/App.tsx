@@ -67,6 +67,8 @@ const censorText = (description: string, forbiddenWords: string[]): string => {
         censoredText = censoredText.replace(regex, (_, p1) => '█'.repeat(p1.length));
     });
 
+    censoredText = censoredText.replace(/([a-zA-ZÀ-ÖØ-öø-ÿ]+)/g, (_, p1) => '█'.repeat(p1.length));
+
     // After the first pass, censor any partially censored words
     censoredText = censoredText.replace(/█([\u05D0-\u05EA]+)/g, (_, p1) => '█'.repeat(p1.length));
     censoredText = censoredText.replace(/([\u05D0-\u05EA]+)█/g, (_, p1) => '█'.repeat(p1.length));
@@ -355,7 +357,7 @@ function App(): JSX.Element {
             }
 
             const title = stripNiqqud(stripParentheses(rawQuestion.title));
-            const description = stripNiqqud(stripParentheses(rawQuestion.extract)).replace(/ ,/g, ",").replace(/ \./g, ".");
+            const description = stripNiqqud(stripParentheses(rawQuestion.extract)).replace(/ ,/g, ",").replace(/ \./g, ".").replace(/־/g, "-");
             let titleWords = title.split(/\s+/);
             titleWords = titleWords.map(word => reverseDigitSequences(word));
             const parsedTitle = titleWords.join(" ");
