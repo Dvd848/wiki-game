@@ -49,7 +49,7 @@ const stripParentheses = (text: string) => {
     let isEqual = true;
     do {
         const prevText = text
-        text = text.replace(/\(([^())]*)\)/g, (match, group1) => ``);
+        text = text.replace(/\(([^())]*)\)/g, "");
         isEqual = (prevText == text);
     } while (!isEqual);
     return text;
@@ -250,7 +250,7 @@ function Game({ question, showNewQuestion }: { question: ParsedQuestion, showNew
             <div className="term">
                 {words.map((word, index) => (
                     <div key={index} className="word">
-                        {word.split('').map((char, charIndex) => {
+                        {word.split('').map(() => {
                             const guessChar = currentGuess[currentGuessIndex];
                             const classNames = ['character', `background_${bgColor}`];
                             if (question.solutionArray[currentGuessIndex].is_const) {
