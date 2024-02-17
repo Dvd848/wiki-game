@@ -1,0 +1,90 @@
+
+.term {
+  text-align: center;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.word {
+  display: flex;
+  margin: 0 0 0 30px;
+}
+
+.character {
+  display: block;
+  width: 60px;
+  height: 60px;
+  border: 1px solid #bbb;
+  margin: 4px;
+  text-align: center;
+  line-height: 60px;
+  text-transform: uppercase;
+  font-weight: bold;
+  font-size: 2.5em;
+  font-family: Arial, verdana, 'sans serif';
+}
+
+.character.background_green:not(.const) {
+  background-color: greenyellow;
+}
+
+.character.background_red:not(.const) {
+  background-color: lightpink;
+}
+
+.const {
+  border: none;
+  text-align: right;
+  width: auto;
+}
+
+.selected {
+  border: 2px solid orange;
+}
+
+.description {
+  width: 90%;
+  max-width: 800px;
+  margin: 20px auto;
+  text-align: justify;
+  font-family: sans-serif;
+}
+
+.nav-tabs .nav-link {
+  border-color: rgb(206, 205, 205);
+  margin-left: 1px;
+}
+
+h1, h2 {
+  text-align: center;
+}
+
+h1 {
+  margin-top: 20px;
+}
+
+h2 {
+  margin-bottom: 20px;
+  font-size: medium;
+}
+
+.App button {
+  margin: 10px auto;
+  padding: 20px;
+}
+
+.game_over {
+  text-align: center;
+  font-size: large;
+}
+
+#reference {
+  text-align: left;
+  font-size: smaller;
+}
+
+#loader {
+  margin: 20px auto;
+  text-align: center;
+}

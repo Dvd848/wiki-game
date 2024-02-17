@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>מה הערך?</title>
+</head>
+<body>
+    
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+
+
+    <div class="modal fade" id="about_modal" tabindex="-1" aria-labelledby="about_modal_label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title fs-5" id="about_modal_label">אודות</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        "מה הערך?" הוא משחק ידע-כללי אינטראקטיבי. במהלך המשחק, מוצגים לכם ערכים שונים מתוך <a href="https://he.wikipedia.org/">ויקיפדיה</a>, כאשר מילות מפתח
+                        מתוך הערכים מצונזרות. עליכם לזהות את כותרת הערך הנוכחי ולהשלים אותו.
+                    </p>
+                    <p>
+                        ויקיפדיה כוללת אינספור ערכים, חלקם איזוטריים למדי. הערכים שנכללים במשחק נבחרים מתוך רשימת 1000 הערכים הנצפים ביותר בויקיפדיה העברית, נכון ליום-יומיים האחרונים. כלומר, כל הערכים הנכללים במשחק ביום נתון הם כאלה שהיו בשיח הציבורי בימים האחרונים. לפעמים, האתגר היותר גדול הוא לא לזהות את הערך, אלא להבין למה 😅.
+                    </p>
+                    <p>
+                        תוכן הערכים נלקח ישירות מתוך ויקיפדיה, ומפורסם תחת רשיון <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>.
+                    </p>
+                    <p>
+                        קוד המקור של האתר זמין ב-<a href="https://github.com/Dvd848/wiki-game">GitHub</a>. 
+                        <a href="https://github.com/Dvd848/wiki-game/issues">הערות</a> ו<a href="https://github.com/Dvd848/wiki-game/pulls">תרומות קוד</a> יתקבלו בברכה.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגירה</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="instructions_modal" tabindex="-1" aria-labelledby="instructions_modal_label" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 class="modal-title fs-5" id="instructions_modal_label">הוראות</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>
+                        במהלך המשחק, מוצג לכם ערך אקראי מתוך ויקיפדיה. מילות מפתח מתוך הערך מצונזרות. עליכם לגלות מהי כותרת הערך.
+                    </p>
+                    <p>
+                    מקשי שליטה:
+                    </p>
+                    <ul>
+                        <li><b>מקשי החצים</b>: הזזת האות הנוכחית.</li>
+                        <li><b>מקש Enter</b>: בדיקת התשובה. תשובה נכונה תסומן בירוק, תשובה שגויה תסומן באדום.</li>
+                        <li><b>מקש Escape</b>: מעבר לערך חדש.</li>
+                    </ul>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">סגירה</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
