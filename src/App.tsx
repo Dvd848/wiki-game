@@ -210,10 +210,15 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
             return;
         }
 
-        const newGuess = [...currentGuess];
-        newGuess[currentIndex] = newChar;
-        setCurrentGuess(() => newGuess);
-        setCurrentIndex(() => nextIndex);
+        if (currentGuess[currentIndex] != newChar) {
+            const newGuess = [...currentGuess];
+            newGuess[currentIndex] = newChar;
+            setCurrentGuess(() => newGuess);
+        }
+
+        if (nextIndex != currentIndex) {
+            setCurrentIndex(() => nextIndex);
+        }
     }
 
     const handleCharClick = (event : React.MouseEvent<HTMLDivElement>) => {
@@ -258,7 +263,7 @@ function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) 
 
     return (
         <div>
-            <div className="term">
+            <div className="term" tabIndex={0}>
                 {words.map((word, index) => (
                     <div key={index} className="word">
                         {word.split('').map(() => {
@@ -431,6 +436,22 @@ function App(): JSX.Element {
             return oldData;
         });
     };
+
+    useEffect(() => {
+        // Blur all elements after click. Otherwise, the Enter key keeps clicking
+        //  them instead of checking the current solution.
+        const handleClick = () => {
+            if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+            }
+        };
+        
+        document.body.addEventListener('click', handleClick);
+        
+        return () => {
+            document.body.removeEventListener('click', handleClick);
+        };
+    }, []);
 
     return (
         <>
