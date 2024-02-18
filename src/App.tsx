@@ -1,5 +1,6 @@
-import { useEffect, useState, Dispatch, SetStateAction } from 'react'
+import { useEffect, useState, Dispatch, SetStateAction, useRef } from 'react'
 import Header from './components/Header.tsx'
+import { Tooltip } from 'bootstrap';
 import './App.css'
 
 type RawQuestion = {
@@ -241,6 +242,7 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
 
 function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) {
     const words = question.parsedTitle.split(/\s+/);
+    const tooltipRef = useRef(null);
 
     // TODO: There must be a better way...
     const { 
@@ -256,6 +258,19 @@ function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) 
         window.addEventListener('keyup', handleKeyup)
         return () => window.removeEventListener('keyup', handleKeyup)
     }, [handleKeyup]);
+
+    useEffect(() => {
+        if (tooltipRef.current != null) {
+            const tooltip = new Tooltip(tooltipRef.current, {
+                container: 'body',
+                trigger: 'hover',
+            });
+        
+            return () => {
+                tooltip.dispose();
+            };
+        }
+    }, []);
 
     let currentGuessIndex = 0;
     const description = (isCorrect) ? question.description : question.censoredDescription;
@@ -298,7 +313,12 @@ function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) 
                     ))
                 }
                 </div>
-                <div id="reference">מקור: <a href={wikiPage} target="_BLANK">ויקיפדיה</a>, רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a></div>
+                <div id="reference">
+                    מקור: <a href={wikiPage} ref={tooltipRef} target="_BLANK" data-bs-toggle="tooltip" 
+                             data-bs-title="זהירות! לחיצה על הקישור תוביל לדף הערך בויקיפדיה ותחשוף את התשובה!"
+                             onClick={showNewQuestion} onAuxClick={showNewQuestion}>ויקיפדיה</a>, 
+                                    רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
+                </div>
             </div>
             <div style={{textAlign: "center"}}>
                 {!isCorrect && <button onClick={checkSolution} className='btn btn-dark'>בדיקת הפתרון</button>}
@@ -355,7 +375,7 @@ function App(): JSX.Element {
         const MIN_DESC_LENGTH = 150;
         let rawQuestion : RawQuestion;
 
-        const skipTerms = [
+        const skipTermsInDesc = [
             "       " // Found in math articles which don't render correctly
         ]
 
@@ -369,7 +389,7 @@ function App(): JSX.Element {
                 throw new Error(`Skipping ${rawQuestion.title} since description length is smaller than minimum`);
             }
 
-            if (skipTerms.some(forbiddenStr => rawQuestion.extract.includes(forbiddenStr))) {
+            if (skipTermsInDesc.some(forbiddenStr => rawQuestion.extract.includes(forbiddenStr))) {
                 throw new Error(`Skipping ${rawQuestion.title} since description contains forbidden term`);
             }
 
