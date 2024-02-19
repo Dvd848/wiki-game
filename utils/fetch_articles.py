@@ -1,11 +1,20 @@
 import requests
 import json
 import gzip
+import argparse
+import time
+import re
 
+from pathlib import Path
 from datetime import datetime, timedelta
 from itertools import islice
 
 WIKI_PROJECT = 'he.wikipedia.org'
+
+def json_file(filepath):
+    if not filepath.endswith('.json'):
+        raise argparse.ArgumentTypeError('File must have a .json extension')
+    return filepath
 
 def send_request(url, params = None):
     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'}
@@ -23,7 +32,7 @@ def batched(iterable, n):
     while (batch := tuple(islice(it, n))):
         yield batch
 
-def get_top_articles(project='en.wikipedia.org', access='all-access', year=None, month=None, day='all-days', num_articles = 1000):
+def get_top_articles(project='en.wikipedia.org', access='all-access', year=None, month=None, day='all-days', max_articles = 1000):
     if year is None or month is None:
         # Get last month's year and month
         last_month = datetime.now() - timedelta(days=30)
@@ -33,7 +42,7 @@ def get_top_articles(project='en.wikipedia.org', access='all-access', year=None,
     url = f'https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/{access}/{year}/{month:02}/{day}'
     response = send_request(url)
 
-    top_articles = response.json()['items'][0]['articles'][:num_articles]
+    top_articles = response.json()['items'][0]['articles'][:max_articles]
 
     articles_data = []
     for article in top_articles:
@@ -101,26 +110,63 @@ def get_article_content(article_titles, project = 'en.wikipedia.org'):
     
     return all_articles_data
 
-
-if __name__ == '__main__':
-    top_articles = get_top_articles(project=WIKI_PROJECT)
-    #with open('top_articles.json', 'w') as f:
-    #    json.dump(top_articles, f, indent=4)
-    #print('Top 1000 articles saved to top_articles.json')
-
-    titles = []
+def is_legal_title(title):
     forbidden_prefixes = ['מיוחד:', 'ויקיפדיה:', 'תבנית:', 'משתמש:']
     forbidden_titles = ['עמוד_ראשי']
-    for i, data in enumerate(top_articles):
-        title = data['title']
-        if title not in forbidden_titles and all(not title.startswith(x) for x in forbidden_prefixes):
-            titles.append(data['title'])
 
+    if title in forbidden_titles:
+        return False
+    if any(title.startswith(x) for x in forbidden_prefixes):
+        return False
+    if title.isdigit():
+        return False
+    if re.search('[a-zA-Z]', title):
+        return False
+    
+    return True
+
+def main(output_path, max_articles):
+    start_time = time.time()
+
+    path = Path(output_path)
+
+    two_days_ago = datetime.now() - timedelta(days=2)
+
+    print(f"Fetching data for {two_days_ago}...")
+    top_articles = get_top_articles(project=WIKI_PROJECT, 
+                                    year=two_days_ago.year,
+                                    month=two_days_ago.month,
+                                    day=two_days_ago.day,
+                                    max_articles=max_articles)
+
+    print(f"Fetched {len(top_articles)} articles")
+    print(f"Filtering data...")
+    titles = []
+    for data in top_articles:
+        title = data['title']
+        if is_legal_title(title):
+            titles.append(data['title'])
+        else:
+            print(f" (-) Skipping {title}")
+
+    print(f"Skipped {len(top_articles) - len(titles)} articles, {len(titles)} remaining") 
+    print("Reading article content...")
     all_articles_data = get_article_content(titles, project = WIKI_PROJECT)
     
-    with open('../public/top_articles.json', 'w', encoding="utf-8") as f:
-        json.dump(all_articles_data, f, indent=2, ensure_ascii=False)
+    print("Dumping article content...")
+    if (len(all_articles_data) > 0):
+        with open(path, 'w', encoding="utf-8") as f:
+            json.dump(all_articles_data, f, indent=2, ensure_ascii=False)
     
-    with gzip.open('../public/top_articles.json.gz', 'wb') as f:
-        f.write(json.dumps(all_articles_data, indent=2, ensure_ascii=False).encode('utf-8'))
+    #with gzip.open(path.with_suffix('gz'), 'wb') as f:
+    #    f.write(json.dumps(all_articles_data, indent=2, ensure_ascii=False).encode('utf-8'))
+    
+    print("Done in {:.2f} seconds".format(time.time() - start_time))
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Fetch top Wikipedia articles and dump to JSON")
+    parser.add_argument("-o", "--output_file", required=True, type=json_file, help="Path to the output file")
+    parser.add_argument("-m", "--max_articles", default=1000, help="Maximum number of articles to fetch")
+    args = parser.parse_args()
+    main(args.output_file, args.max_articles)
     

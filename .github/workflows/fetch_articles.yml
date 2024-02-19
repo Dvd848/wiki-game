@@ -1,0 +1,33 @@
+name: Fetch Articles
+
+on:
+  schedule:
+    # Every day at 1AM
+    - cron: '0 1 * * *'
+
+jobs:
+  run_script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run Python script
+        run: python ./utils/fetch_articles.py -o ./public/top_articles.json
+
+      - name: Add and commit changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add .
+          git commit -m "Auto-commit: Update articles"
+          git push
