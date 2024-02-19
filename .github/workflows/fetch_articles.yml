@@ -4,6 +4,7 @@ on:
   schedule:
     # Every day at 1AM
     - cron: '0 1 * * *'
+  workflow_dispatch:
 
 jobs:
   run_script:
