@@ -8,22 +8,35 @@
 
 .word {
   display: flex;
-  margin: 0 15px 0 15px;
+  /*margin: 0 15px 0 15px;*/
+  margin-left: min(2vw, 15px);
+  margin-right: min(2vw, 15px);
 }
 
 .character {
-  display: block;
+  /*
   width: 60px;
   height: 60px;
+  font-size: 2.5em;
+  line-height: 60px;
+  */
+  width: 8vw;
+  height: 8vw;
+  font-size: min(3vw, 2.5em);
+  justify-content: center;
+  align-items: center;
+  display: flex;
+  max-width: 60px;
+  max-height: 60px;
   border: 1px solid #bbb;
   margin: 4px;
+
   text-align: center;
-  line-height: 60px;
   text-transform: uppercase;
   font-weight: bold;
-  font-size: 2.5em;
   font-family: Arial, verdana, 'sans serif';
 }
+
 
 .character.background_green:not(.const) {
   background-color: greenyellow;
@@ -91,4 +104,8 @@ h3 {
 #loader {
   margin: 20px auto;
   text-align: center;
+}
+
+#keyboard_filler {
+  height: 50vh;
 }

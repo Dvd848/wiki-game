@@ -1,6 +1,7 @@
 import { useEffect, useState, Dispatch, SetStateAction, useRef } from 'react'
 import Header from './components/Header.tsx'
 import { Tooltip } from 'bootstrap';
+import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
 import './App.css'
 
 type RawQuestion = {
@@ -72,7 +73,7 @@ const censorText = (description: string, forbiddenWords: string[]): string => {
         censoredText = censoredText.replace(regex, (_, p1) => '█'.repeat(p1.length));
     });
 
-    censoredText = censoredText.replace(/([a-zA-ZÀ-ÖØ-öø-ÿ]+)/g, (_, p1) => '█'.repeat(p1.length));
+    censoredText = censoredText.replace(/([a-zA-ZÀ-ÖØ-öø-ÿǒī]+)/g, (_, p1) => '█'.repeat(p1.length));
 
     // After the first pass, censor any partially censored words
     censoredText = censoredText.replace(/█([\u05D0-\u05EA]+)/g, (_, p1) => '█'.repeat(p1.length));
@@ -98,6 +99,11 @@ const reverseDigitSequences = (input: string): string => {
     });
 }
 
+const isMobile = () => {
+    // Far from perfect but opefully good enough for our purposes
+    return Math.min(window.screen.width, window.screen.height) < 768 || navigator.userAgent.indexOf("Mobi") > -1;
+}
+
 function removeAtIndex<T>(array: T[], index: number): T[] {
     if (index < 0 || index >= array.length) {
         throw new Error("Index out of bounds.");
@@ -120,6 +126,7 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
         if (question.solutionArray[0].is_const) {
             setCurrentIndex(() => moveForward(0));
         }
+        window.scrollTo(0, 0);
      }, [question]);
     
     const moveBackwards = (index: number) : number => {
@@ -150,6 +157,7 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
     }
 
     const checkSolution = () => {
+        window.scrollTo(0, 0);
         if (currentGuess.join('') === question.solutionStripped) {
             setIsCorrect(true);
             setBgColor('green');
@@ -242,7 +250,9 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
 
 function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) {
     const words = question.parsedTitle.split(/\s+/);
-    const tooltipRef = useRef(null);
+    const tooltipRefWiki = useRef(null);
+    const tooltipRefCheckSol = useRef(null);
+    const tooltipRefs = [tooltipRefWiki, tooltipRefCheckSol];
 
     // TODO: There must be a better way...
     const { 
@@ -260,16 +270,22 @@ function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) 
     }, [handleKeyup]);
 
     useEffect(() => {
-        if (tooltipRef.current != null) {
-            const tooltip = new Tooltip(tooltipRef.current, {
-                container: 'body',
-                trigger: 'hover',
-            });
-        
-            return () => {
-                tooltip.dispose();
-            };
+        const tooltips : Tooltip[] = [];
+        for (const tooltipRef of tooltipRefs) {
+            if (tooltipRef.current != null) {
+                const tooltip = new Tooltip(tooltipRef.current, {
+                    container: 'body',
+                    trigger: 'hover',
+                });
+                tooltips.push(tooltip);
+            }
         }
+
+        return () => {
+            for (const t of tooltips) {
+                t.dispose();
+            }
+        };
     }, []);
 
     let currentGuessIndex = 0;
@@ -314,14 +330,15 @@ function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) 
                 }
                 </div>
                 <div id="reference">
-                    מקור: <a href={wikiPage} ref={tooltipRef} target="_BLANK" data-bs-toggle="tooltip" 
+                    מקור: <a href={wikiPage} ref={tooltipRefWiki} target="_BLANK" data-bs-toggle="tooltip" 
                              data-bs-title="זהירות! לחיצה על הקישור תוביל לדף הערך בויקיפדיה ותחשוף את התשובה!"
                              onClick={showNewQuestion} onAuxClick={showNewQuestion}>ויקיפדיה</a>, 
                                     רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
                 </div>
             </div>
             <div style={{textAlign: "center"}}>
-                {!isCorrect && <button onClick={checkSolution} className='btn btn-dark'>בדיקת הפתרון</button>}
+                {!isCorrect && <button onClick={checkSolution} className='btn btn-dark' data-bs-toggle="tooltip" 
+                             ref={tooltipRefCheckSol} data-bs-title="טיפ: נוח יותר להקיש Enter לבדיקת הפתרון">בדיקת הפתרון</button>}
             </div>
         </div>
     );
@@ -415,7 +432,25 @@ function App(): JSX.Element {
             if (solutionStripped == "") {
                 throw new Error(`Skipping ${rawQuestion.title} since solutionStripped is empty`);
             }
-    
+
+            const censoredDescription = censorText(description, 
+                [...stripNonLegalChars(titleWords), 
+                 ...titleWords.filter(word => !isAllDigits(word))
+                              .filter(str => !['-'].includes(str))])
+            
+            if (!censoredDescription.includes("█")) {
+                throw new Error(`Skipping ${rawQuestion.title} since didn't find anything to censor`);
+            }
+
+            if (isMobile()) {
+                const max_word_len = 8;
+                for (const word of titleWords) {
+                    if (word.length > max_word_len) {
+                        throw new Error(`Skipping ${rawQuestion.title} since word too long`);
+                    }
+                }
+            }
+
             const parsedQuestion : ParsedQuestion = {
                 originalTitle: title,
                 parsedTitle: parsedTitle,
@@ -424,10 +459,7 @@ function App(): JSX.Element {
                 solutionStripped: solutionStripped,
                 index: randomIndex,
                 pageid: rawQuestion.pageid,
-                censoredDescription: censorText(description, 
-                                                [...stripNonLegalChars(titleWords), 
-                                                 ...titleWords.filter(word => !isAllDigits(word))
-                                                              .filter(str => !['-'].includes(str))]),
+                censoredDescription: censoredDescription,
             }
 
             console.log(`Selected title: ${title}`);
@@ -495,6 +527,7 @@ function App(): JSX.Element {
                         <div style={{textAlign: "center"}}>
                             {data.length > 0 && <button onClick={skipQuestion} className='btn btn-danger'>ערך אחר</button>}
                         </div>
+                        <OnScreenKeyboard />
                     </div>
                 )}
             </div>
