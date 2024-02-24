@@ -56,12 +56,49 @@
   border: 2px solid orange;
 }
 
-.description {
+.description, .control {
   width: 90%;
   max-width: 800px;
   margin: 20px auto;
+}
+
+.description {
   text-align: justify;
   font-family: sans-serif;
+}
+
+.control {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.score {
+  flex-grow: 1;
+  text-align: center;
+}
+
+.control button {
+  flex-shrink: 0;
+  padding: 5px;
+  width: 180px;
+}
+
+@media (max-width: 800px) {
+  .control {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .control button {
+    order: 2;
+    margin-top: 10px; /* Add some space between the buttons and the text */
+  }
+
+  .score {
+    order: 1;
+  }
 }
 
 .nav-tabs .nav-link {
@@ -86,10 +123,6 @@ h3 {
   font-size: small;
 }
 
-.App button {
-  margin: 10px auto;
-  padding: 20px;
-}
 
 .game_over {
   text-align: center;
@@ -107,5 +140,6 @@ h3 {
 }
 
 #keyboard_filler {
-  height: 50vh;
+  /*height: 33vh;*/
+  height: 200px;
 }

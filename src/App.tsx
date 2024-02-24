@@ -1,6 +1,6 @@
-import { useEffect, useState, Dispatch, SetStateAction, useRef } from 'react'
+import { useEffect, useState, Dispatch, SetStateAction } from 'react'
 import Header from './components/Header.tsx'
-import { Tooltip } from 'bootstrap';
+import { Tooltip } from './components/Tooltip.tsx'
 import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
 import './App.css'
 
@@ -29,7 +29,28 @@ type ParsedQuestion = {
 interface GameProps {
     question: ParsedQuestion,
     showNewQuestion: () => void,
-    setNumQuestionsCorrect:  Dispatch<SetStateAction<number>>
+    statisticsControls:  StatisticsControls
+}
+
+interface TermProps {
+    question: ParsedQuestion,
+    isCorrect: boolean,
+    currentGuess: string[],
+    currentIndex: number,
+    bgColor: string,
+    handleCharClick: (event : React.MouseEvent<HTMLDivElement>) => void
+}
+
+interface DescriptionProps {
+    question: ParsedQuestion,
+    isCorrect: boolean,
+    showNewQuestion: () => void,
+}
+
+interface StatisticsControls {
+    numQuestionAsked: number,
+    numQuestionCorrect: number,
+    setNumQuestionsCorrect: Dispatch<SetStateAction<number>>
 }
 
 const isLegalInput = (key: string) : boolean => {
@@ -112,11 +133,74 @@ function removeAtIndex<T>(array: T[], index: number): T[] {
     return array.filter((_, idx) => idx !== index);
 }
 
-const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQuestionsCorrect: Dispatch<SetStateAction<number>>) => {
-    const [currentGuess, setCurrentGuess] = useState<string[]>(Array.from({ length: question.solutionArray.length }, () => ''));
+function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handleCharClick}: TermProps) {
+    
+    let currentGuessIndex = 0;
+    const words = question.parsedTitle.split(/\s+/);
+
+    return (
+        <div className="term" tabIndex={0}>
+            {words.map((word, index) => (
+                <div key={index} className="word">
+                    {word.split('').map(() => {
+                        const guessChar = currentGuess[currentGuessIndex];
+                        const classNames = ['character', `background_${bgColor}`];
+                        if (question.solutionArray[currentGuessIndex].is_const) {
+                            classNames.push('const');
+                        } else {
+                            if ( (!isCorrect) &&  (currentIndex === currentGuessIndex) ) {
+                                classNames.push('selected');
+                            }
+                        }
+                        const ret = (
+                            <div key={currentGuessIndex} className={classNames.join(" ")} 
+                                    onClick={handleCharClick} data-index={currentGuessIndex}>
+                                {(question.solutionArray[currentGuessIndex].is_const) ? question.solutionArray[currentGuessIndex].key : guessChar}
+                            </div>
+                        );
+                        currentGuessIndex++;
+                        return ret;
+                    })}
+                </div>
+            ))}
+        </div>
+    )
+}
+
+function Description({ question, isCorrect, showNewQuestion}: DescriptionProps) {
+
+    const description = (isCorrect) ? question.description : question.censoredDescription;
+    const wikiPage = "https://he.wikipedia.org/?curid=" + question.pageid;
+
+    return (
+        <div className='description'>
+            <div>        
+            {
+                description.split('\n').map((paragraph, index) => (
+                    <p key={index}>
+                        {paragraph}
+                    </p>
+                ))
+            }
+            </div>
+            <div id="reference">
+                מקור: 
+                <Tooltip text="זהירות! לחיצה על הקישור תוביל לדף הערך בויקיפדיה ותחשוף את התשובה!">
+                    <a href={wikiPage} target="_BLANK" onClick={showNewQuestion} onAuxClick={showNewQuestion}>ויקיפדיה</a>
+                </Tooltip>, 
+                רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
+            </div>
+        </div>
+    )
+}
+
+
+function Game({ question, showNewQuestion, statisticsControls }: GameProps) {
     const [isCorrect, setIsCorrect] = useState(false);
-    const [currentIndex, setCurrentIndex] = useState(0);
+
     const [bgColor, setBgColor] = useState('default');
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [currentGuess, setCurrentGuess] = useState<string[]>(Array.from({ length: question.solutionArray.length }, () => ''));
 
     useEffect(()=> { 
         setCurrentIndex(() => 0);
@@ -128,7 +212,7 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
         }
         window.scrollTo(0, 0);
      }, [question]);
-    
+
     const moveBackwards = (index: number) : number => {
         let firstIndex = 0;
         while (question.solutionArray[firstIndex].is_const) {
@@ -161,14 +245,14 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
         if (currentGuess.join('') === question.solutionStripped) {
             setIsCorrect(true);
             setBgColor('green');
-            setNumQuestionsCorrect(prev => prev + 1);
+            statisticsControls.setNumQuestionsCorrect(prev => prev + 1);
         }
         else {
             setBgColor('red');
             setTimeout(() => setBgColor(''), 1000);
         }
     }
-    
+   
     const handleKeyup = (event : KeyboardEvent) => {
         let newChar = currentGuess[currentIndex];
         let nextIndex = currentIndex;
@@ -230,6 +314,11 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
         }
     }
 
+    useEffect(() => {
+        window.addEventListener('keyup', handleKeyup)
+        return () => window.removeEventListener('keyup', handleKeyup)
+    }, [handleKeyup]);
+
     const handleCharClick = (event : React.MouseEvent<HTMLDivElement>) => {
         const indexStr = (event.target as HTMLDivElement).getAttribute("data-index");
         if (indexStr == null) {
@@ -243,103 +332,23 @@ const useGame = (question: ParsedQuestion, showNewQuestion: () => void, setNumQu
         setCurrentIndex(() => indexNum);
     }
 
-    return {currentGuess, currentIndex, isCorrect, bgColor, handleKeyup, handleCharClick, checkSolution}
-}
-
-
-
-function Game({ question, showNewQuestion, setNumQuestionsCorrect }: GameProps) {
-    const words = question.parsedTitle.split(/\s+/);
-    const tooltipRefWiki = useRef(null);
-    const tooltipRefCheckSol = useRef(null);
-    const tooltipRefs = [tooltipRefWiki, tooltipRefCheckSol];
-
-    // TODO: There must be a better way...
-    const { 
-        currentGuess, 
-        currentIndex, 
-        isCorrect, 
-        bgColor, 
-        handleKeyup, 
-        handleCharClick, 
-        checkSolution } = useGame(question, showNewQuestion, setNumQuestionsCorrect);
-
-    useEffect(() => {
-        window.addEventListener('keyup', handleKeyup)
-        return () => window.removeEventListener('keyup', handleKeyup)
-    }, [handleKeyup]);
-
-    useEffect(() => {
-        const tooltips : Tooltip[] = [];
-        for (const tooltipRef of tooltipRefs) {
-            if (tooltipRef.current != null) {
-                const tooltip = new Tooltip(tooltipRef.current, {
-                    container: 'body',
-                    trigger: 'hover',
-                });
-                tooltips.push(tooltip);
-            }
-        }
-
-        return () => {
-            for (const t of tooltips) {
-                t.dispose();
-            }
-        };
-    }, []);
-
-    let currentGuessIndex = 0;
-    const description = (isCorrect) ? question.description : question.censoredDescription;
-    const wikiPage = "https://he.wikipedia.org/?curid=" + question.pageid;
-
     return (
         <div>
-            <div className="term" tabIndex={0}>
-                {words.map((word, index) => (
-                    <div key={index} className="word">
-                        {word.split('').map(() => {
-                            const guessChar = currentGuess[currentGuessIndex];
-                            const classNames = ['character', `background_${bgColor}`];
-                            if (question.solutionArray[currentGuessIndex].is_const) {
-                                classNames.push('const');
-                            } else {
-                                if ( (!isCorrect) &&  (currentIndex === currentGuessIndex) ) {
-                                    classNames.push('selected');
-                                }
-                            }
-                            const ret = (
-                                <div key={currentGuessIndex} className={classNames.join(" ")} 
-                                     onClick={handleCharClick} data-index={currentGuessIndex}>
-                                    {(question.solutionArray[currentGuessIndex].is_const) ? question.solutionArray[currentGuessIndex].key : guessChar}
-                                </div>
-                            );
-                            currentGuessIndex++;
-                            return ret;
-                        })}
-                    </div>
-                ))}
+            <div className='control'>
+                <Tooltip text="טיפ: נוח יותר להקיש Enter לבדיקת הפתרון">
+                    <button onClick={checkSolution} className='btn btn-light' disabled={isCorrect}>בדיקת הפתרון</button>
+                </Tooltip>
+
+                <div id="score">תוצאה: {statisticsControls.numQuestionCorrect}/{statisticsControls.numQuestionAsked}</div>
+                
+                <Tooltip text="טיפ: נוח יותר להקיש Esc למעבר לערך אחר">
+                    <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>
+                </Tooltip>
             </div>
-            <div className='description'>
-                <div>        
-                {
-                    description.split('\n').map((paragraph, index) => (
-                        <p key={index}>
-                            {paragraph}
-                        </p>
-                    ))
-                }
-                </div>
-                <div id="reference">
-                    מקור: <a href={wikiPage} ref={tooltipRefWiki} target="_BLANK" data-bs-toggle="tooltip" 
-                             data-bs-title="זהירות! לחיצה על הקישור תוביל לדף הערך בויקיפדיה ותחשוף את התשובה!"
-                             onClick={showNewQuestion} onAuxClick={showNewQuestion}>ויקיפדיה</a>, 
-                                    רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
-                </div>
-            </div>
-            <div style={{textAlign: "center"}}>
-                {!isCorrect && <button onClick={checkSolution} className='btn btn-dark' data-bs-toggle="tooltip" 
-                             ref={tooltipRefCheckSol} data-bs-title="טיפ: נוח יותר להקיש Enter לבדיקת הפתרון">בדיקת הפתרון</button>}
-            </div>
+            <Term question={question} isCorrect={isCorrect} 
+                  currentGuess={currentGuess} currentIndex={currentIndex}
+                  bgColor={bgColor} handleCharClick={handleCharClick}/>
+            <Description question={question} isCorrect={isCorrect} showNewQuestion={showNewQuestion}/>
         </div>
     );
 }
@@ -349,7 +358,13 @@ function App(): JSX.Element {
     const [question, setQuestion] = useState<ParsedQuestion | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [numQuestionAsked, setNumQuestionAsked] = useState<number>(0);
-    const [numQuestionCorrect, setNumQuestionCorrect] = useState<number>(0);
+    const [numQuestionCorrect, setNumQuestionsCorrect] = useState<number>(0);
+
+    const statisticsControls: StatisticsControls = {
+        numQuestionAsked,
+        numQuestionCorrect,
+        setNumQuestionsCorrect
+    };
     
     useEffect(() => {
         fetchData();
@@ -360,7 +375,6 @@ function App(): JSX.Element {
             showNewQuestion();
         }
     }, [isLoading, data]);
-
     
     const fetchData = async (): Promise<void> => {
         try {
@@ -419,7 +433,8 @@ function App(): JSX.Element {
             }
 
             const title = stripNiqqud(stripParentheses(rawQuestion.title)).trim();
-            const description = stripNiqqud(stripParentheses(rawQuestion.extract)).replace(/ ,/g, ",").replace(/ \./g, ".").replace(/־/g, "-");
+            const description = stripNiqqud(stripParentheses(rawQuestion.extract)).replace(/ ,/g, ",")
+                                .replace(/ \./g, ".").replace(/־/g, "-").replace(/\[דרוש מקור\]/g, "");
             let titleWords = title.split(/\s+/);
             titleWords = titleWords.map(word => reverseDigitSequences(word));
             const parsedTitle = titleWords.join(" ");
@@ -511,7 +526,6 @@ function App(): JSX.Element {
             <div className="App">
                 <h1>מה הערך?</h1>
                 <h2>משחק זיהוי ערכים</h2>
-                <h3>תוצאה: {numQuestionCorrect}/{numQuestionAsked}</h3>
                 {isLoading ? (
                     <div id="loader">
                         <div className="spinner-border" id="loader" role="status">
@@ -521,12 +535,9 @@ function App(): JSX.Element {
                 ) : (
                     <div>
                         {question && data.length > 0 && (
-                            <Game question={question} showNewQuestion={skipQuestion} setNumQuestionsCorrect={setNumQuestionCorrect}/>
+                            <Game question={question} showNewQuestion={skipQuestion} statisticsControls={statisticsControls}/>
                         )}
                         {data.length == 0 && <div className='game_over'>זהו. זה נגמר. סיימתם הכל. נראה אתכם מחר?</div>}
-                        <div style={{textAlign: "center"}}>
-                            {data.length > 0 && <button onClick={skipQuestion} className='btn btn-danger'>ערך אחר</button>}
-                        </div>
                         <OnScreenKeyboard />
                     </div>
                 )}
