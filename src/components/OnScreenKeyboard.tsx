@@ -3,7 +3,7 @@ import React from 'react'
 
 function isTouchDevice() {
     return (('ontouchstart' in window) ||
-    (navigator.maxTouchPoints > 0));
+    ((navigator.maxTouchPoints & 0xFF) > 0));
 }
 
 const OnScreenKeyboard: React.FC = () => {
