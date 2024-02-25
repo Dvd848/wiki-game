@@ -74,7 +74,7 @@
   align-items: center;
 }
 
-.score {
+#score {
   flex-grow: 1;
   text-align: center;
 }
@@ -96,7 +96,7 @@
     margin-top: 10px; /* Add some space between the buttons and the text */
   }
 
-  .score {
+  #score {
     order: 1;
   }
 }

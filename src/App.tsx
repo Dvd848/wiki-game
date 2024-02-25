@@ -50,7 +50,9 @@ interface DescriptionProps {
 interface StatisticsControls {
     numQuestionAsked: number,
     numQuestionCorrect: number,
-    setNumQuestionsCorrect: Dispatch<SetStateAction<number>>
+    setNumQuestionsCorrect: Dispatch<SetStateAction<number>>,
+    bestNumQuestionAsked: number,
+    bestNumQuestionCorrect: number
 }
 
 const isLegalInput = (key: string) : boolean => {
@@ -339,7 +341,22 @@ function Game({ question, showNewQuestion, statisticsControls }: GameProps) {
                     <button onClick={checkSolution} className='btn btn-light' disabled={isCorrect}>בדיקת הפתרון</button>
                 </Tooltip>
 
-                <div id="score">תוצאה: {statisticsControls.numQuestionCorrect}/{statisticsControls.numQuestionAsked}</div>
+                <div id="score">
+                    תוצאה: {statisticsControls.numQuestionCorrect}/{statisticsControls.numQuestionAsked} 
+                    &nbsp;
+                    {
+                        statisticsControls.bestNumQuestionCorrect ? (
+                            <>
+                                <br/>
+                                <span style={{fontSize: "0.7em"}}>
+                                    (שיא אישי: {statisticsControls.bestNumQuestionCorrect}/{statisticsControls.bestNumQuestionAsked})
+                                </span>
+                            </>
+                        ) : (
+                            <></>
+                        )
+                    }
+                </div>
                 
                 <Tooltip text="טיפ: נוח יותר להקיש Esc למעבר לערך אחר">
                     <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>
@@ -359,15 +376,28 @@ function App(): JSX.Element {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [numQuestionAsked, setNumQuestionAsked] = useState<number>(0);
     const [numQuestionCorrect, setNumQuestionsCorrect] = useState<number>(0);
+    const [bestNumQuestionAsked, setBestNumQuestionAsked] = useState<number>(0);
+    const [bestNumQuestionCorrect, setBestNumQuestionsCorrect] = useState<number>(0);
 
     const statisticsControls: StatisticsControls = {
         numQuestionAsked,
         numQuestionCorrect,
-        setNumQuestionsCorrect
+        setNumQuestionsCorrect,
+        bestNumQuestionAsked,
+        bestNumQuestionCorrect
     };
     
     useEffect(() => {
         fetchData();
+
+        const storedStatsRaw = localStorage.getItem('gameStats');
+        if (storedStatsRaw) {
+            const storedStats = JSON.parse(storedStatsRaw);
+            if (storedStats) {
+                setBestNumQuestionAsked(storedStats.bestNumQuestionAsked || 0);
+                setBestNumQuestionsCorrect(storedStats.bestNumQuestionCorrect || 0);
+            }
+        }
     }, []);
 
     useEffect(() => {
@@ -375,6 +405,25 @@ function App(): JSX.Element {
             showNewQuestion();
         }
     }, [isLoading, data]);
+
+    useEffect(()=> { 
+        if ( 
+            (numQuestionCorrect > bestNumQuestionCorrect) 
+            || 
+            ( (numQuestionCorrect == bestNumQuestionCorrect) && (numQuestionAsked < bestNumQuestionAsked) )
+            )
+        {
+            setBestNumQuestionAsked(numQuestionAsked);
+            setBestNumQuestionsCorrect(numQuestionCorrect);
+            const newGameStats = JSON.stringify({
+                version: 1,
+                bestNumQuestionAsked: numQuestionAsked,
+                bestNumQuestionCorrect: numQuestionCorrect,
+            });
+            localStorage.setItem('gameStats', newGameStats);
+            console.log(newGameStats);
+        }
+    }, [numQuestionCorrect]);
     
     const fetchData = async (): Promise<void> => {
         try {
