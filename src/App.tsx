@@ -1,7 +1,9 @@
-import { useEffect, useState, Dispatch, SetStateAction } from 'react'
+import { useEffect, useState, Dispatch, SetStateAction, useRef } from 'react'
 import Header from './components/Header.tsx'
+import Footer from './components/Footer.tsx'
 import { Tooltip } from './components/Tooltip.tsx'
 import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
+import { Offcanvas } from "bootstrap"
 import './App.css'
 
 type RawQuestion = {
@@ -29,7 +31,8 @@ type ParsedQuestion = {
 interface GameProps {
     question: ParsedQuestion,
     showNewQuestion: () => void,
-    statisticsControls:  StatisticsControls
+    statisticsControls:  StatisticsControls,
+    showKeyboard: () => void
 }
 
 interface TermProps {
@@ -38,7 +41,8 @@ interface TermProps {
     currentGuess: string[],
     currentIndex: number,
     bgColor: string,
-    handleCharClick: (event : React.MouseEvent<HTMLDivElement>) => void
+    handleCharClick: (event : React.MouseEvent<HTMLDivElement>) => void,
+    showKeyboard: () => void
 }
 
 interface DescriptionProps {
@@ -47,7 +51,7 @@ interface DescriptionProps {
     showNewQuestion: () => void,
 }
 
-interface StatisticsControls {
+export interface StatisticsControls {
     numQuestionAsked: number,
     numQuestionCorrect: number,
     setNumQuestionsCorrect: Dispatch<SetStateAction<number>>,
@@ -135,7 +139,7 @@ function removeAtIndex<T>(array: T[], index: number): T[] {
     return array.filter((_, idx) => idx !== index);
 }
 
-function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handleCharClick}: TermProps) {
+function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handleCharClick, showKeyboard}: TermProps) {
     
     let currentGuessIndex = 0;
     const words = question.parsedTitle.split(/\s+/);
@@ -156,7 +160,7 @@ function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handle
                         }
                         const ret = (
                             <div key={currentGuessIndex} className={classNames.join(" ")} 
-                                    onClick={handleCharClick} data-index={currentGuessIndex}>
+                                    onClick={handleCharClick} data-index={currentGuessIndex} onTouchStart={showKeyboard}>
                                 {(question.solutionArray[currentGuessIndex].is_const) ? question.solutionArray[currentGuessIndex].key : guessChar}
                             </div>
                         );
@@ -197,7 +201,7 @@ function Description({ question, isCorrect, showNewQuestion}: DescriptionProps) 
 }
 
 
-function Game({ question, showNewQuestion, statisticsControls }: GameProps) {
+function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: GameProps) {
     const [isCorrect, setIsCorrect] = useState(false);
 
     const [bgColor, setBgColor] = useState('default');
@@ -337,34 +341,33 @@ function Game({ question, showNewQuestion, statisticsControls }: GameProps) {
     return (
         <div>
             <div className='control'>
-                <Tooltip text="טיפ: נוח יותר להקיש Enter לבדיקת הפתרון">
-                    <button onClick={checkSolution} className='btn btn-light' disabled={isCorrect}>בדיקת הפתרון</button>
-                </Tooltip>
+                {
+                    isMobile() ? (
+                        <button onClick={checkSolution} className='btn btn-light' disabled={isCorrect}>בדיקת הפתרון</button>
+                    ) : (
+                        <Tooltip text="טיפ: נוח יותר להקיש Enter לבדיקת הפתרון">
+                            <button onClick={checkSolution} className='btn btn-light' disabled={isCorrect}>בדיקת הפתרון</button>
+                        </Tooltip>
+                    )
+                }
 
                 <div id="score">
                     תוצאה: {statisticsControls.numQuestionCorrect}/{statisticsControls.numQuestionAsked} 
-                    &nbsp;
-                    {
-                        statisticsControls.bestNumQuestionCorrect ? (
-                            <>
-                                <br/>
-                                <span style={{fontSize: "0.7em"}}>
-                                    (שיא אישי: {statisticsControls.bestNumQuestionCorrect}/{statisticsControls.bestNumQuestionAsked})
-                                </span>
-                            </>
-                        ) : (
-                            <></>
-                        )
-                    }
                 </div>
                 
-                <Tooltip text="טיפ: נוח יותר להקיש Esc למעבר לערך אחר">
-                    <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>
-                </Tooltip>
+                {
+                    isMobile() ? (
+                        <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>        
+                    ) : (
+                        <Tooltip text="טיפ: נוח יותר להקיש Esc למעבר לערך אחר">
+                            <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>
+                        </Tooltip>
+                    )
+                }
             </div>
             <Term question={question} isCorrect={isCorrect} 
                   currentGuess={currentGuess} currentIndex={currentIndex}
-                  bgColor={bgColor} handleCharClick={handleCharClick}/>
+                  bgColor={bgColor} handleCharClick={handleCharClick} showKeyboard={showKeyboard}/>
             <Description question={question} isCorrect={isCorrect} showNewQuestion={showNewQuestion}/>
         </div>
     );
@@ -378,6 +381,7 @@ function App(): JSX.Element {
     const [numQuestionCorrect, setNumQuestionsCorrect] = useState<number>(0);
     const [bestNumQuestionAsked, setBestNumQuestionAsked] = useState<number>(0);
     const [bestNumQuestionCorrect, setBestNumQuestionsCorrect] = useState<number>(0);
+    const keyboardRef = useRef<HTMLDivElement>(null);
 
     const statisticsControls: StatisticsControls = {
         numQuestionAsked,
@@ -569,9 +573,16 @@ function App(): JSX.Element {
         };
     }, []);
 
+    const showKeyboard = () => {
+        if (keyboardRef.current) {
+            const bsOffcanvas = new Offcanvas(keyboardRef.current)
+            bsOffcanvas.show();
+        }
+    }
+
     return (
         <>
-            <Header></Header>
+            <Header/>
             <div className="App">
                 <h1>מה הערך?</h1>
                 <h2>משחק זיהוי ערכים</h2>
@@ -584,13 +595,15 @@ function App(): JSX.Element {
                 ) : (
                     <div>
                         {question && data.length > 0 && (
-                            <Game question={question} showNewQuestion={skipQuestion} statisticsControls={statisticsControls}/>
+                            <Game question={question} showNewQuestion={skipQuestion} 
+                                  statisticsControls={statisticsControls} showKeyboard={showKeyboard}/>
                         )}
                         {data.length == 0 && <div className='game_over'>זהו. זה נגמר. סיימתם הכל. נראה אתכם מחר?</div>}
-                        <OnScreenKeyboard />
+                        <OnScreenKeyboard keyboardRef={keyboardRef}/>
                     </div>
                 )}
             </div>
+            <Footer statisticsControls={statisticsControls}/>
         </>
     )
 }

@@ -65,6 +65,8 @@
 .description {
   text-align: justify;
   font-family: sans-serif;
+  /*margin-bottom: 150px;*/
+  margin-bottom: 270px;
 }
 
 .control {
@@ -142,4 +144,16 @@ h3 {
 #keyboard_filler {
   /*height: 33vh;*/
   height: 200px;
+}
+
+.footer {
+  padding: 7px 25px;
+  justify-content: space-between;
+  align-items: center;
+  display: flex;
+}
+
+#max_score {
+  display: flex;
+  align-items: center;
 }
