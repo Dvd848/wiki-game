@@ -38,6 +38,7 @@ interface GameProps {
 interface TermProps {
     question: ParsedQuestion,
     isCorrect: boolean,
+    isRevealed: boolean,
     currentGuess: string[],
     currentIndex: number,
     bgColor: string,
@@ -47,7 +48,7 @@ interface TermProps {
 
 interface DescriptionProps {
     question: ParsedQuestion,
-    isCorrect: boolean,
+    showFullDescription: boolean,
     showNewQuestion: () => void,
 }
 
@@ -100,7 +101,7 @@ const censorText = (description: string, forbiddenWords: string[]): string => {
         censoredText = censoredText.replace(regex, (_, p1) => '█'.repeat(p1.length));
     });
 
-    censoredText = censoredText.replace(/([a-zA-ZÀ-ÖØ-öø-ÿǒī]+)/g, (_, p1) => '█'.repeat(p1.length));
+    censoredText = censoredText.replace(/([a-zA-ZÀ-ÖØ-öø-ÿǒīł]+)/g, (_, p1) => '█'.repeat(p1.length));
 
     // After the first pass, censor any partially censored words
     censoredText = censoredText.replace(/█([\u05D0-\u05EA]+)/g, (_, p1) => '█'.repeat(p1.length));
@@ -139,7 +140,7 @@ function removeAtIndex<T>(array: T[], index: number): T[] {
     return array.filter((_, idx) => idx !== index);
 }
 
-function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handleCharClick, showKeyboard}: TermProps) {
+function Term({ question, isCorrect, isRevealed, currentGuess, currentIndex, bgColor, handleCharClick, showKeyboard}: TermProps) {
     
     let currentGuessIndex = 0;
     const words = question.parsedTitle.split(/\s+/);
@@ -151,6 +152,9 @@ function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handle
                     {word.split('').map(() => {
                         const guessChar = currentGuess[currentGuessIndex];
                         const classNames = ['character', `background_${bgColor}`];
+                        if (isRevealed) {
+                            classNames.push('revealed');
+                        }
                         if (question.solutionArray[currentGuessIndex].is_const) {
                             classNames.push('const');
                         } else {
@@ -161,7 +165,8 @@ function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handle
                         const ret = (
                             <div key={currentGuessIndex} className={classNames.join(" ")} 
                                     onClick={handleCharClick} data-index={currentGuessIndex} onTouchStart={showKeyboard}>
-                                {(question.solutionArray[currentGuessIndex].is_const) ? question.solutionArray[currentGuessIndex].key : guessChar}
+                                {(question.solutionArray[currentGuessIndex].is_const || isRevealed) 
+                                    ? question.solutionArray[currentGuessIndex].key : guessChar}
                             </div>
                         );
                         currentGuessIndex++;
@@ -173,9 +178,9 @@ function Term({ question, isCorrect, currentGuess, currentIndex, bgColor, handle
     )
 }
 
-function Description({ question, isCorrect, showNewQuestion}: DescriptionProps) {
+function Description({ question, showFullDescription, showNewQuestion}: DescriptionProps) {
 
-    const description = (isCorrect) ? question.description : question.censoredDescription;
+    const description = (showFullDescription) ? question.description : question.censoredDescription;
     const wikiPage = "https://he.wikipedia.org/?curid=" + question.pageid;
 
     return (
@@ -203,15 +208,19 @@ function Description({ question, isCorrect, showNewQuestion}: DescriptionProps) 
 
 function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: GameProps) {
     const [isCorrect, setIsCorrect] = useState(false);
+    const [isRevealed, setIsRevealed] = useState(false);
 
     const [bgColor, setBgColor] = useState('default');
     const [currentIndex, setCurrentIndex] = useState(0);
     const [currentGuess, setCurrentGuess] = useState<string[]>(Array.from({ length: question.solutionArray.length }, () => ''));
 
+    const [nextQuestionText, setNextQuestionText] = useState('');
+
     useEffect(()=> { 
         setCurrentIndex(() => 0);
         setCurrentGuess(() => Array.from({ length: question.solutionArray.length }, () => ''));
         setIsCorrect(() => false);
+        setIsRevealed(() => false);
         setBgColor(() => 'default');
         if (question.solutionArray[0].is_const) {
             setCurrentIndex(() => moveForward(0));
@@ -250,12 +259,22 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         window.scrollTo(0, 0);
         if (currentGuess.join('') === question.solutionStripped) {
             setIsCorrect(true);
-            setBgColor('green');
+            setBgColor('correct');
             statisticsControls.setNumQuestionsCorrect(prev => prev + 1);
         }
         else {
-            setBgColor('red');
+            setBgColor('incorrect');
             setTimeout(() => setBgColor(''), 1000);
+        }
+    }
+
+    const nextQuestion = () => {
+        if (isCorrect || isRevealed) {
+            showNewQuestion();
+        }
+        else {
+            setBgColor('dark_red');
+            setIsRevealed(() => true);
         }
     }
    
@@ -269,12 +288,12 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         }
 
         if (eventKey === "Escape") {
-            showNewQuestion();
+            nextQuestion();
         }
 
-        if (isCorrect) {
+        if (isCorrect || isRevealed) {
             if (eventKey === 'Enter') {
-                showNewQuestion();
+                nextQuestion();
             }
             return;
         }
@@ -338,6 +357,12 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         setCurrentIndex(() => indexNum);
     }
 
+    useEffect(() => {
+        setNextQuestionText(() => (isCorrect || isRevealed) ? "לערך הבא" : "חשיפת הפתרון");
+    }, [isCorrect, isRevealed]);
+
+    
+
     return (
         <div>
             <div className='control'>
@@ -357,18 +382,18 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
                 
                 {
                     isMobile() ? (
-                        <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>        
+                        <button onClick={nextQuestion} className='btn btn-light'>{nextQuestionText}</button>        
                     ) : (
-                        <Tooltip text="טיפ: נוח יותר להקיש Esc למעבר לערך אחר">
-                            <button onClick={showNewQuestion} className='btn btn-light'>ערך אחר</button>
+                        <Tooltip text="טיפ: אפשר גם להקיש Esc במקום">
+                            <button onClick={nextQuestion} className='btn btn-light'>{nextQuestionText}</button>
                         </Tooltip>
                     )
                 }
             </div>
-            <Term question={question} isCorrect={isCorrect} 
+            <Term question={question} isCorrect={isCorrect} isRevealed={isRevealed}
                   currentGuess={currentGuess} currentIndex={currentIndex}
                   bgColor={bgColor} handleCharClick={handleCharClick} showKeyboard={showKeyboard}/>
-            <Description question={question} isCorrect={isCorrect} showNewQuestion={showNewQuestion}/>
+            <Description question={question} showFullDescription={isCorrect || isRevealed} showNewQuestion={showNewQuestion}/>
         </div>
     );
 }

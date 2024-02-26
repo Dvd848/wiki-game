@@ -38,12 +38,21 @@
 }
 
 
-.character.background_green:not(.const) {
+.character.background_correct:not(.const) {
   background-color: greenyellow;
 }
 
-.character.background_red:not(.const) {
+.character.background_incorrect:not(.const) {
   background-color: lightpink;
+}
+
+.character.revealed:not(.const) {
+  background-color: #B94D4D;
+  color: white;
+}
+
+.character.revealed {
+  color: #B94D4D;
 }
 
 .const {
