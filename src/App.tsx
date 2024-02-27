@@ -570,10 +570,14 @@ function App(): JSX.Element {
         ]
 
         const randomIndex = Math.floor(Math.random() * data.length);
+        const isDev = import.meta.env.MODE == "development";
 
         try {
             rawQuestion = data[randomIndex];
-            console.log(`Initial title: ${rawQuestion.title}`);
+
+            if (isDev) {
+                console.log(`Initial title: ${rawQuestion.title}`);
+            }
 
             if (rawQuestion.extract.length < MIN_DESC_LENGTH) {
                 throw new Error(`Skipping ${rawQuestion.title} since description length is smaller than minimum`);
@@ -636,7 +640,9 @@ function App(): JSX.Element {
                 censoredDescription: censoredDescription,
             }
 
-            console.log(`Selected title: ${title}`);
+            if (isDev) {
+                console.log(`Selected title: ${title}`);
+            }
 
             setQuestion(() => {
                 return parsedQuestion
