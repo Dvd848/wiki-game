@@ -35,6 +35,10 @@ interface GameProps {
     showKeyboard: () => void
 }
 
+interface StatisticsProps {
+    statisticsControls:  StatisticsControls
+}
+
 interface TermProps {
     question: ParsedQuestion,
     isCorrect: boolean,
@@ -53,11 +57,18 @@ interface DescriptionProps {
 }
 
 export interface StatisticsControls {
-    numQuestionAsked: number,
-    numQuestionCorrect: number,
+    numQuestionsAsked: number,
+    numQuestionsCorrect: number,
     setNumQuestionsCorrect: Dispatch<SetStateAction<number>>,
-    bestNumQuestionAsked: number,
-    bestNumQuestionCorrect: number
+    numQuestionsIncorrect: number,
+    setNumQuestionsIncorrect: Dispatch<SetStateAction<number>>,
+    bestNumQuestionsAsked: number,
+    bestNumQuestionsCorrect: number,
+    bestNumQuestionsIncorrect: number
+}
+
+export const calculatePoints = (numQuestionsCorrect: number, numQuestionsIncorrect: number) => {
+    return (numQuestionsCorrect * 3) - (numQuestionsIncorrect);
 }
 
 const isLegalInput = (key: string) : boolean => {
@@ -205,6 +216,55 @@ function Description({ question, showFullDescription, showNewQuestion}: Descript
     )
 }
 
+function Statistics({ statisticsControls }: StatisticsProps) {
+    return (
+        <div className="modal fade" id="statistics_modal" aria-labelledby="statistics_modal_label" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+                <div className="modal-header">
+                    <h3 className="modal-title fs-5" id="statistics_modal_label">סטטיסטיקה</h3>
+                    <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div className="modal-body">
+                    {
+                        (statisticsControls.numQuestionsCorrect > 0 || statisticsControls.numQuestionsIncorrect > 0) ? 
+                        (
+                            <p>
+                                במהלך המשחק הנוכחי השגתם 
+                                <b dir="ltr"> {calculatePoints(statisticsControls.numQuestionsCorrect, statisticsControls.numQuestionsIncorrect)} </b> נקודות,
+                                כאשר זיהיתם נכונה 
+                                <b> {statisticsControls.numQuestionsCorrect} </b> ערכים ודילגתם על 
+                                <b> {statisticsControls.numQuestionsIncorrect} </b> ערכים.
+                            </p>
+                        ) : (
+                            <p>כאן תוכלו לראות סטטיסטיקות אודות המשחק הנוכחי ומשחק השיא שלכם.</p>
+                        )
+                    }
+                    {
+                        (statisticsControls.bestNumQuestionsCorrect > 0 || statisticsControls.bestNumQuestionsIncorrect > 0) ? 
+                        (
+                            <p>
+                                במהלך משחק השיא שלכם השגתם 
+                                <b dir="ltr"> {calculatePoints(statisticsControls.bestNumQuestionsCorrect, statisticsControls.bestNumQuestionsIncorrect)} </b> נקודות,
+                                כאשר זיהיתם נכונה 
+                                <b> {statisticsControls.bestNumQuestionsCorrect} </b> ערכים ודילגתם על 
+                                <b> {statisticsControls.bestNumQuestionsIncorrect} </b> ערכים.
+                            </p>
+                        ) : (
+                            <p>האם תצליחו לשבור את השיא האישי שלכם?</p>
+                        )
+                    }
+
+                </div>
+                <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" data-bs-dismiss="modal">סגירה</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    )
+}
+
 
 function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: GameProps) {
     const [isCorrect, setIsCorrect] = useState(false);
@@ -275,6 +335,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         else {
             setBgColor('dark_red');
             setIsRevealed(() => true);
+            statisticsControls.setNumQuestionsIncorrect(prev => prev + 1);
         }
     }
    
@@ -288,7 +349,9 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         }
 
         if (eventKey === "Escape") {
-            nextQuestion();
+            if (!document.body.classList.contains('modal-open')) {
+                nextQuestion();
+            }
         }
 
         if (isCorrect || isRevealed) {
@@ -339,10 +402,22 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         }
     }
 
+    const handleKeydown = (event : KeyboardEvent) => {
+        if(event.key == " " && event.target == document.body) {
+            // Prevent space from scrolling down
+            event.preventDefault();
+        }
+    }
+
     useEffect(() => {
         window.addEventListener('keyup', handleKeyup)
         return () => window.removeEventListener('keyup', handleKeyup)
     }, [handleKeyup]);
+
+    useEffect(() => {
+        window.addEventListener('keydown', handleKeydown)
+        return () => window.removeEventListener('keydown', handleKeydown)
+    }, [handleKeydown]);
 
     const handleCharClick = (event : React.MouseEvent<HTMLDivElement>) => {
         const indexStr = (event.target as HTMLDivElement).getAttribute("data-index");
@@ -377,7 +452,10 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
                 }
 
                 <div id="score">
-                    תוצאה: {statisticsControls.numQuestionCorrect}/{statisticsControls.numQuestionAsked} 
+                    תוצאה: &nbsp;
+                    <span dir="ltr" style={{fontWeight: "bold"}}>
+                        {calculatePoints(statisticsControls.numQuestionsCorrect, statisticsControls.numQuestionsIncorrect)}
+                    </span>
                 </div>
                 
                 {
@@ -393,7 +471,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
             <Term question={question} isCorrect={isCorrect} isRevealed={isRevealed}
                   currentGuess={currentGuess} currentIndex={currentIndex}
                   bgColor={bgColor} handleCharClick={handleCharClick} showKeyboard={showKeyboard}/>
-            <Description question={question} showFullDescription={isCorrect || isRevealed} showNewQuestion={showNewQuestion}/>
+            <Description question={question} showFullDescription={isCorrect || isRevealed} showNewQuestion={nextQuestion}/>
         </div>
     );
 }
@@ -402,18 +480,23 @@ function App(): JSX.Element {
     const [data, setData] = useState<RawQuestion[]>([]);
     const [question, setQuestion] = useState<ParsedQuestion | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(true);
-    const [numQuestionAsked, setNumQuestionAsked] = useState<number>(0);
-    const [numQuestionCorrect, setNumQuestionsCorrect] = useState<number>(0);
-    const [bestNumQuestionAsked, setBestNumQuestionAsked] = useState<number>(0);
-    const [bestNumQuestionCorrect, setBestNumQuestionsCorrect] = useState<number>(0);
+    const [numQuestionsAsked, setNumQuestionsAsked] = useState<number>(0);
+    const [numQuestionsCorrect, setNumQuestionsCorrect] = useState<number>(0);
+    const [numQuestionsIncorrect, setNumQuestionsIncorrect] = useState<number>(0);
+    const [bestNumQuestionsAsked, setBestNumQuestionsAsked] = useState<number>(0);
+    const [bestNumQuestionsCorrect, setBestNumQuestionsCorrect] = useState<number>(0);
+    const [bestNumQuestionsIncorrect, setBestNumQuestionsIncorrect] = useState<number>(0);
     const keyboardRef = useRef<HTMLDivElement>(null);
 
     const statisticsControls: StatisticsControls = {
-        numQuestionAsked,
-        numQuestionCorrect,
+        numQuestionsAsked,
+        numQuestionsCorrect,
         setNumQuestionsCorrect,
-        bestNumQuestionAsked,
-        bestNumQuestionCorrect
+        numQuestionsIncorrect,
+        setNumQuestionsIncorrect,
+        bestNumQuestionsAsked,
+        bestNumQuestionsCorrect,
+        bestNumQuestionsIncorrect
     };
     
     useEffect(() => {
@@ -423,8 +506,9 @@ function App(): JSX.Element {
         if (storedStatsRaw) {
             const storedStats = JSON.parse(storedStatsRaw);
             if (storedStats) {
-                setBestNumQuestionAsked(storedStats.bestNumQuestionAsked || 0);
-                setBestNumQuestionsCorrect(storedStats.bestNumQuestionCorrect || 0);
+                setBestNumQuestionsAsked(storedStats.bestNumQuestionsAsked || 0);
+                setBestNumQuestionsCorrect(storedStats.bestNumQuestionsCorrect || 0);
+                setBestNumQuestionsIncorrect(storedStats.bestNumQuestionsIncorrect || 0);
             }
         }
     }, []);
@@ -436,23 +520,20 @@ function App(): JSX.Element {
     }, [isLoading, data]);
 
     useEffect(()=> { 
-        if ( 
-            (numQuestionCorrect > bestNumQuestionCorrect) 
-            || 
-            ( (numQuestionCorrect == bestNumQuestionCorrect) && (numQuestionAsked < bestNumQuestionAsked) )
-            )
+        if ( calculatePoints(numQuestionsCorrect, numQuestionsIncorrect) > calculatePoints(bestNumQuestionsCorrect, bestNumQuestionsIncorrect))
         {
-            setBestNumQuestionAsked(numQuestionAsked);
-            setBestNumQuestionsCorrect(numQuestionCorrect);
+            setBestNumQuestionsAsked(numQuestionsAsked);
+            setBestNumQuestionsCorrect(numQuestionsCorrect);
+            setBestNumQuestionsIncorrect(numQuestionsIncorrect);
             const newGameStats = JSON.stringify({
                 version: 1,
-                bestNumQuestionAsked: numQuestionAsked,
-                bestNumQuestionCorrect: numQuestionCorrect,
+                bestNumQuestionsAsked: numQuestionsAsked,
+                bestNumQuestionsCorrect: numQuestionsCorrect,
+                bestNumQuestionsIncorrect: numQuestionsIncorrect,
             });
             localStorage.setItem('gameStats', newGameStats);
-            console.log(newGameStats);
         }
-    }, [numQuestionCorrect]);
+    }, [numQuestionsCorrect, numQuestionsIncorrect]);
     
     const fetchData = async (): Promise<void> => {
         try {
@@ -462,7 +543,7 @@ function App(): JSX.Element {
             setData(prevData => {
                 if (prevData.length != 0) {
                     // https://stackoverflow.com/questions/61254372/
-                    setNumQuestionAsked(0);
+                    setNumQuestionsAsked(0);
                 }
                 return jsonData;
             });
@@ -561,7 +642,7 @@ function App(): JSX.Element {
                 return parsedQuestion
             });
 
-            setNumQuestionAsked(prev => prev + 1);
+            setNumQuestionsAsked(prev => prev + 1);
         } catch (error) {
             if (error instanceof Error) {
                 console.log(error.message);
@@ -610,7 +691,7 @@ function App(): JSX.Element {
             <Header/>
             <div className="App">
                 <h1>מה הערך?</h1>
-                <h2>משחק זיהוי ערכים</h2>
+                <h2>משחק ידע-כללי אינטראקטיבי</h2>
                 {isLoading ? (
                     <div id="loader">
                         <div className="spinner-border" id="loader" role="status">
@@ -628,6 +709,7 @@ function App(): JSX.Element {
                     </div>
                 )}
             </div>
+            <Statistics statisticsControls={statisticsControls}/>
             <Footer statisticsControls={statisticsControls}/>
         </>
     )

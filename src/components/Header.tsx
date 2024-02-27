@@ -15,11 +15,14 @@ const Header: React.FC = () => {
                         <a className="nav-link" href="#" data-bs-target="#instructions_modal" data-bs-toggle="modal">הוראות</a>
                     </li>
                     <li className="nav-item">
+                        <a className="nav-link" href="#" data-bs-target="#statistics_modal" data-bs-toggle="modal">סטטיסטיקה</a>
+                    </li>
+                    <li className="nav-item">
                         <a className="nav-link" href="#" data-bs-target="#about_modal" data-bs-toggle="modal">אודות</a>
                     </li>
                 </ul>
                 <span className="navbar-text d-none d-lg-block">
-                    משחק זיהוי ערכים
+                משחק ידע-כללי אינטראקטיבי
                 </span> 
             </div>
         </div>
