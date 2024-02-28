@@ -143,6 +143,26 @@ const isMobile = () => {
     return Math.min(window.screen.width, window.screen.height) < 768 || navigator.userAgent.indexOf("Mobi") > -1;
 }
 
+const scrollToTopIfNeeded = () => {
+    const term = document.getElementById("term");
+    if (term == null) {
+        return;
+    }
+    const rect = term.getBoundingClientRect();
+
+    const isVisible = (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+
+    // If the element is not in the viewport, scroll it into view
+    if (!isVisible) {
+        document.getElementById("subtitle")?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+
 function removeAtIndex<T>(array: T[], index: number): T[] {
     if (index < 0 || index >= array.length) {
         throw new Error("Index out of bounds.");
@@ -157,7 +177,7 @@ function Term({ question, isCorrect, isRevealed, currentGuess, currentIndex, bgC
     const words = question.parsedTitle.split(/\s+/);
 
     return (
-        <div className="term" tabIndex={0}>
+        <div className="term" tabIndex={0} id="term">
             {words.map((word, index) => (
                 <div key={index} className="word">
                     {word.split('').map(() => {
@@ -285,7 +305,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
         if (question.solutionArray[0].is_const) {
             setCurrentIndex(() => moveForward(0));
         }
-        window.scrollTo(0, 0);
+        scrollToTopIfNeeded();
      }, [question]);
 
     const moveBackwards = (index: number) : number => {
@@ -316,7 +336,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
     }
 
     const checkSolution = () => {
-        window.scrollTo(0, 0);
+        scrollToTopIfNeeded();
         if (currentGuess.join('') === question.solutionStripped) {
             setIsCorrect(true);
             setBgColor('correct');
@@ -336,6 +356,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
             setBgColor('dark_red');
             setIsRevealed(() => true);
             statisticsControls.setNumQuestionsIncorrect(prev => prev + 1);
+            scrollToTopIfNeeded();
         }
     }
    
@@ -697,7 +718,7 @@ function App(): JSX.Element {
             <Header/>
             <div className="App">
                 <h1>מה הערך?</h1>
-                <h2>משחק ידע-כללי אינטראקטיבי</h2>
+                <h2 id="subtitle">משחק ידע-כללי אינטראקטיבי</h2>
                 {isLoading ? (
                     <div id="loader">
                         <div className="spinner-border" id="loader" role="status">
