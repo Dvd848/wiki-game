@@ -15,6 +15,8 @@ In order to avoid including esoteric or obscure pages in the game, the titles ar
 
 ![](docs/img4.png)
 
+https://github.com/Dvd848/wiki-game/assets/864431/c6a1b779-c80c-4fcd-867a-48070c2ee69a
+
 ## Development
 
 Developed this as a mini-project to get acquainted with React.  
