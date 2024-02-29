@@ -541,7 +541,11 @@ function App(): JSX.Element {
     }, [isLoading, data]);
 
     useEffect(()=> { 
-        if ( calculatePoints(numQuestionsCorrect, numQuestionsIncorrect) > calculatePoints(bestNumQuestionsCorrect, bestNumQuestionsIncorrect))
+        const currentPoints = calculatePoints(numQuestionsCorrect, numQuestionsIncorrect);
+        const bestPoints = calculatePoints(bestNumQuestionsCorrect, bestNumQuestionsIncorrect);
+        const currentNumQuestions = numQuestionsCorrect + numQuestionsIncorrect;
+        const bestNumQuestions = bestNumQuestionsCorrect + bestNumQuestionsIncorrect;
+        if ( (currentPoints > bestPoints) || ( (currentPoints == bestPoints) && (currentNumQuestions < bestNumQuestions)) )
         {
             setBestNumQuestionsAsked(numQuestionsAsked);
             setBestNumQuestionsCorrect(numQuestionsCorrect);
@@ -697,6 +701,11 @@ function App(): JSX.Element {
             if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
             }
+            setTimeout(function(){
+                document.querySelectorAll('a').forEach(function(link) {
+                    link.blur();
+                });
+            }, 1000);
         };
         
         document.body.addEventListener('click', handleClick);
