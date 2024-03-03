@@ -38,6 +38,8 @@ def get_top_articles(project='en.wikipedia.org', access='all-access', year=None,
         last_month = datetime.now() - timedelta(days=30)
         year = last_month.year
         month = last_month.month
+    if str(day).isnumeric():
+        day = f'{day:02}'
 
     url = f'https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/{access}/{year}/{month:02}/{day}'
     response = send_request(url)
