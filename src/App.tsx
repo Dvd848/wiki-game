@@ -3,8 +3,10 @@ import Header from './components/Header.tsx'
 import Footer from './components/Footer.tsx'
 import { Tooltip } from './components/Tooltip.tsx'
 import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
-import { Offcanvas } from "bootstrap"
+import { Offcanvas, Modal } from "bootstrap"
 import './App.css'
+
+const DAILY_CHALLENGE_QUESTIONS = 20;
 
 type RawQuestion = {
     title: string,
@@ -32,7 +34,11 @@ interface GameProps {
     question: ParsedQuestion,
     showNewQuestion: () => void,
     statisticsControls:  StatisticsControls,
-    showKeyboard: () => void
+    showKeyboard: () => void,
+    isDailyChallenge: boolean,
+    correctIncorrectSequence: boolean[],
+    onDailyQuestionResult: (isCorrect: boolean) => void,
+    onDailyChallengeComplete: () => void
 }
 
 interface StatisticsProps {
@@ -141,6 +147,49 @@ const reverseDigitSequences = (input: string): string => {
 const isMobile = () => {
     // Far from perfect but opefully good enough for our purposes
     return Math.min(window.screen.width, window.screen.height) < 768 || navigator.userAgent.indexOf("Mobi") > -1;
+}
+
+// Seeded random number generator for consistent daily questions
+const getDateSeed = (): number => {
+    const today = new Date();
+    const dateString = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+    let hash = 0;
+    for (let i = 0; i < dateString.length; i++) {
+        const char = dateString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+}
+
+const seededRandom = (seed: number, index: number): number => {
+    const x = Math.sin(seed + index) * 10000;
+    return x - Math.floor(x);
+}
+
+const getRandomIndexWithinRange = (min: number, max: number, seed: number, sequenceIndex: number): number => {
+    const range = max - min + 1;
+    const random = seededRandom(seed, sequenceIndex);
+    return min + Math.floor(random * range);
+}
+
+const generateShareText = (correctIncorrectSequence: boolean[], numQuestionsCorrect: number): string => {
+    const today = new Date();
+    const dateString = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    
+    const emojiSequence = correctIncorrectSequence.map(isCorrect => isCorrect ? '🟩' : '🟥').join('');
+    const characters = [...emojiSequence];
+    
+    // Break emoji sequence into rows of 5
+    const rows = [];
+    for (let i = 0; i < characters.length; i += 5) {
+        rows.push(characters.slice(i, i + 5).join(''));
+    }
+    const emojiGrid = rows.join('\n');
+    
+    return `האתגר היומי של "מה הערך?"\n`
+        + `[${dateString}, ${numQuestionsCorrect}/${DAILY_CHALLENGE_QUESTIONS}]\n`
+        + `${emojiGrid}`;
 }
 
 const scrollToTopIfNeeded = () => {
@@ -285,8 +334,108 @@ function Statistics({ statisticsControls }: StatisticsProps) {
     )
 }
 
+interface DailyChallengeCompletionProps {
+    correctIncorrectSequence: boolean[],
+    numQuestionsCorrect: number,
+    onShare: () => void,
+    onContinue: () => void
+}
 
-function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: GameProps) {
+function DailyChallengeCompletion({ correctIncorrectSequence, numQuestionsCorrect, onShare, onContinue }: DailyChallengeCompletionProps) {
+    const totalQuestions = correctIncorrectSequence.length;
+    const points = calculatePoints(numQuestionsCorrect, totalQuestions - numQuestionsCorrect);
+
+    const handleShare = () => {
+        const shareText = generateShareText(correctIncorrectSequence, numQuestionsCorrect);
+        const textCopied = "התוצאה הועתקה ללוח הקיצורים!";
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'האתגר היומי של "מה הערך?"',
+                text: shareText
+            }).catch(err => {
+                // Fallback to clipboard if native share fails
+                navigator.clipboard.writeText(shareText).then(() => {
+                    alert(textCopied);
+                });
+            });
+        } else {
+            // Fallback to clipboard
+            navigator.clipboard.writeText(shareText).then(() => {
+                alert(textCopied);
+            });
+        }
+        
+        onShare();
+    };
+
+    return (
+        <div className="modal fade" id="daily_challenge_modal" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="daily_challenge_label" aria-hidden="true">
+            <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                    <div className="modal-header">
+                        <h3 className="modal-title fs-5" id="daily_challenge_label">סיימתם את האתגר היומי!</h3>
+                    </div>
+                    <div className="modal-body">
+                        <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                            <h4 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>
+                                <span style={{ fontSize: '1rem' }}>תוצאה:</span>&nbsp;
+                                <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}><span dir="ltr">{points}</span> נקודות</span> 
+                            </h4>
+                            <p style={{ fontSize: '1.1rem' }}>
+                                <span dir="ltr">{numQuestionsCorrect} / {totalQuestions}</span> תשובות נכונות
+                            </p>
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            marginBottom: '1.5rem',
+                            direction: 'ltr'
+                        }}>
+                            {Array.from({ length: Math.ceil(correctIncorrectSequence.length / 5) }).map((_, rowIdx) => (
+                                <div key={rowIdx} style={{ display: 'flex', gap: '0.5rem' }}>
+                                    {correctIncorrectSequence.slice(rowIdx * 5, rowIdx * 5 + 5).map((isCorrect, colIdx) => {
+                                        const index = rowIdx * 5 + colIdx;
+                                        if (index >= correctIncorrectSequence.length) return null;
+                                        return (
+                                            <div
+                                                key={index}
+                                                style={{
+                                                    width: '2rem',
+                                                    height: '2rem',
+                                                    borderRadius: '0.25rem',
+                                                    backgroundColor: isCorrect ? '#28a745' : '#dc3545',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: 'white',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                {index + 1}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="modal-footer">
+                        <button type="button" className="btn btn-primary" onClick={handleShare}>שיתוף התוצאה</button>
+                        <button type="button" className="btn btn-secondary" onClick={onContinue}>המשך משחק</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+function Game({ question, showNewQuestion, statisticsControls, showKeyboard, isDailyChallenge, correctIncorrectSequence, onDailyQuestionResult, onDailyChallengeComplete }: GameProps) {
     const [isCorrect, setIsCorrect] = useState(false);
     const [isRevealed, setIsRevealed] = useState(false);
 
@@ -341,6 +490,9 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
             setIsCorrect(true);
             setBgColor('correct');
             statisticsControls.setNumQuestionsCorrect(prev => prev + 1);
+            if (isDailyChallenge && correctIncorrectSequence.length < DAILY_CHALLENGE_QUESTIONS) {
+                onDailyQuestionResult(true);
+            }
         }
         else {
             setBgColor('incorrect');
@@ -350,12 +502,22 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
 
     const nextQuestion = () => {
         if (isCorrect || isRevealed) {
-            showNewQuestion();
+            // Check if this is the daily challenge completion
+            const totalQuestionsAnswered = isDailyChallenge ? correctIncorrectSequence.length : 0;
+            if (isDailyChallenge && totalQuestionsAnswered >= DAILY_CHALLENGE_QUESTIONS) {
+                // Daily challenge completed
+                onDailyChallengeComplete();
+            } else {
+                showNewQuestion();
+            }
         }
         else {
             setBgColor('dark_red');
             setIsRevealed(() => true);
             statisticsControls.setNumQuestionsIncorrect(prev => prev + 1);
+            if (isDailyChallenge && correctIncorrectSequence.length < DAILY_CHALLENGE_QUESTIONS) {
+                onDailyQuestionResult(false);
+            }
             scrollToTopIfNeeded();
         }
     }
@@ -473,6 +635,7 @@ function Game({ question, showNewQuestion, statisticsControls, showKeyboard }: G
                 }
 
                 <div id="score">
+                    שאלה #{statisticsControls.numQuestionsAsked}<span id="num_questions">/{DAILY_CHALLENGE_QUESTIONS}</span>&nbsp;&nbsp;|&nbsp;&nbsp;
                     תוצאה: &nbsp;
                     <span dir="ltr" style={{fontWeight: "bold"}}>
                         {calculatePoints(statisticsControls.numQuestionsCorrect, statisticsControls.numQuestionsIncorrect)}
@@ -507,6 +670,9 @@ function App(): JSX.Element {
     const [bestNumQuestionsAsked, setBestNumQuestionsAsked] = useState<number>(0);
     const [bestNumQuestionsCorrect, setBestNumQuestionsCorrect] = useState<number>(0);
     const [bestNumQuestionsIncorrect, setBestNumQuestionsIncorrect] = useState<number>(0);
+    const [isDailyChallenge, setIsDailyChallenge] = useState<boolean>(true);
+    const [correctIncorrectSequence, setCorrectIncorrectSequence] = useState<boolean[]>([]);
+    const [showDailyChallengeModal, setShowDailyChallengeModal] = useState<boolean>(false);
     const keyboardRef = useRef<HTMLDivElement>(null);
 
     const statisticsControls: StatisticsControls = {
@@ -587,15 +753,46 @@ function App(): JSX.Element {
             return;
         }
 
-        const MIN_DESC_LENGTH = 150;
+        const MIN_DESC_LENGTH = 200;
         let rawQuestion : RawQuestion;
 
         const skipTermsInDesc = [
             "       " // Found in math articles which don't render correctly
         ]
 
-        const randomIndex = Math.floor(Math.random() * data.length);
+        let randomIndex: number;
         const isDev = import.meta.env.MODE == "development";
+
+        // Daily challenge selection logic
+        if (isDailyChallenge && correctIncorrectSequence.length < DAILY_CHALLENGE_QUESTIONS) {
+            const dailyRanges = [
+                { start: 0, end: 9, count: 2 },      // 2 from first 10
+                { start: 10, end: 19, count: 3 },    // 3 from 11-20
+                { start: 20, end: 49, count: 5 },    // 5 from 21-50
+                { start: 50, end: 99, count: 8 },    // 8 from 51-100
+                { start: 100, end: 199, count: 2 }   // 2 from 101-200
+            ];
+
+            let rangeIndex = 0;
+            let selectedInCurrentRange = 0;
+            let totalQuestionsReached = 0;
+
+            for (let i = 0; i < dailyRanges.length; i++) {
+                totalQuestionsReached += dailyRanges[i].count;
+                if (correctIncorrectSequence.length < totalQuestionsReached) {
+                    rangeIndex = i;
+                    selectedInCurrentRange = correctIncorrectSequence.length - (totalQuestionsReached - dailyRanges[i].count);
+                    break;
+                }
+            }
+
+            const range = dailyRanges[rangeIndex];
+            const seed = getDateSeed();
+            randomIndex = getRandomIndexWithinRange(range.start, range.end, seed, correctIncorrectSequence.length);
+        } else {
+            // Random selection after daily challenge or if not daily challenge
+            randomIndex = Math.floor(Math.random() * data.length);
+        }
 
         try {
             rawQuestion = data[randomIndex];
@@ -722,6 +919,43 @@ function App(): JSX.Element {
         }
     }
 
+    const handleDailyQuestionResult = (isCorrect: boolean) => {
+        setCorrectIncorrectSequence(prev => [...prev, isCorrect]);
+    }
+
+    const handleDailyChallengeComplete = () => {
+        const numQuestionsElement = document.getElementById("num_questions");
+        if (numQuestionsElement) {
+            numQuestionsElement.style.display = "none";
+        }
+        setShowDailyChallengeModal(true);
+    }
+
+    const handleContinueAfterDaily = () => {
+        // Close the Bootstrap modal
+        const modalElement = document.getElementById('daily_challenge_modal');
+        if (modalElement) {
+            const bsModal = Modal.getInstance(modalElement);
+            if (bsModal) {
+                bsModal.hide();
+            }
+        }
+        
+        setShowDailyChallengeModal(false);
+        setIsDailyChallenge(false);
+        showNewQuestion();
+    }
+
+    useEffect(() => {
+        if (showDailyChallengeModal) {
+            const modalElement = document.getElementById('daily_challenge_modal');
+            if (modalElement) {
+                const bsModal = new Modal(modalElement);
+                bsModal.show();
+            }
+        }
+    }, [showDailyChallengeModal]);
+
     return (
         <>
             <Header/>
@@ -738,7 +972,10 @@ function App(): JSX.Element {
                     <div>
                         {question && data.length > 0 && (
                             <Game question={question} showNewQuestion={skipQuestion} 
-                                  statisticsControls={statisticsControls} showKeyboard={showKeyboard}/>
+                                  statisticsControls={statisticsControls} showKeyboard={showKeyboard}
+                                  isDailyChallenge={isDailyChallenge} correctIncorrectSequence={correctIncorrectSequence}
+                                  onDailyQuestionResult={handleDailyQuestionResult}
+                                  onDailyChallengeComplete={handleDailyChallengeComplete}/>
                         )}
                         {data.length == 0 && <div className='game_over'>זהו. זה נגמר. סיימתם הכל. נראה אתכם מחר?</div>}
                         <OnScreenKeyboard keyboardRef={keyboardRef}/>
@@ -746,6 +983,11 @@ function App(): JSX.Element {
                 )}
             </div>
             <Statistics statisticsControls={statisticsControls}/>
+            <DailyChallengeCompletion 
+                correctIncorrectSequence={correctIncorrectSequence}
+                numQuestionsCorrect={numQuestionsCorrect}
+                onShare={() => {}}
+                onContinue={handleContinueAfterDaily}/>
             <Footer statisticsControls={statisticsControls}/>
         </>
     )
