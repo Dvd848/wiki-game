@@ -6,7 +6,7 @@ import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
 import { Offcanvas, Modal } from "bootstrap"
 import './App.css'
 
-const DAILY_CHALLENGE_QUESTIONS = 3;
+const DAILY_CHALLENGE_QUESTIONS = 20;
 
 type RawQuestion = {
     title: string,
