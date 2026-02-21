@@ -859,7 +859,7 @@ function App(): JSX.Element {
                 throw new Error(`Skipping ${rawQuestion.title} since didn't find anything to censor`);
             }
 
-            if (isMobile()) {
+            if (isDailyChallenge || isMobile()) {
                 const max_word_len = 8;
                 for (const word of titleWords) {
                     if (word.length > max_word_len) {
