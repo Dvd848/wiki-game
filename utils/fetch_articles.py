@@ -19,6 +19,9 @@ def json_file(filepath):
 def send_request(url, params = None):
     headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/102.0.0.0 Safari/537.36'}
     response = requests.get(url, params = params, headers = headers)
+
+    #print(f"Requesting {response.url}")
+
     if response.status_code != 200:
         raise RuntimeError(f'Failed to fetch {url}:', response.status_code)
     return response
@@ -42,6 +45,7 @@ def get_top_articles(project='en.wikipedia.org', access='all-access', year=None,
         day = f'{day:02}'
 
     url = f'https://wikimedia.org/api/rest_v1/metrics/pageviews/top/{project}/{access}/{year}/{month:02}/{day}'
+    print(f"Fetching top articles from {url}...")
     response = send_request(url)
 
     top_articles = response.json()['items'][0]['articles'][:max_articles]
@@ -50,14 +54,16 @@ def get_top_articles(project='en.wikipedia.org', access='all-access', year=None,
     for article in top_articles:
         title = article['article']
         article_data = {
-            'title': title
+            'title': title,
+            'views': article['views'],
+            'rank': article['rank']
         }
         articles_data.append(article_data)
 
     return articles_data
 
-def get_article_content(article_titles, project = 'en.wikipedia.org'):
-    def get_article_content_single(article_titles, project, continuation_token):
+def get_article_content(article_attributes, project = 'en.wikipedia.org'):
+    def get_article_content_single(article_titles, project, continuation_token, article_attributes, normalization_map):
         base_url = f'https://{project}/w/api.php'
         params = {
             'action': 'query',
@@ -77,16 +83,29 @@ def get_article_content(article_titles, project = 'en.wikipedia.org'):
         data = response.json()
 
         articles_data = []
+        normalized = data.get('query', {}).get('normalized', [])
+        for item in normalized:
+            normalization_map[item['to']] = item['from']
+        
         pages = data.get('query', {}).get('pages', {})
         for page in pages.values():
             try:
+                title = page['title']
+                if title in normalization_map:
+                    title = normalization_map[title]
+                views = article_attributes[title]['views']
+                rank = article_attributes[title]['rank']
+
                 article_data = {
                     'title': page['title'],
                     'extract': page['extract'],
-                    'pageid': page['pageid']
+                    'pageid': page['pageid'],
+                    'views': views,
+                    'rank': rank
                 }
                 articles_data.append(article_data)
             except KeyError:
+                #print(f" (-) Skipping {page['title']} due to missing attributes")
                 pass
 
         continuation_token = data.get('continue', {}).get('excontinue')
@@ -95,12 +114,14 @@ def get_article_content(article_titles, project = 'en.wikipedia.org'):
     
     all_articles_data = []
     chunk_size = 50
+    article_titles = list(article_attributes.keys())
+    normalization_map = {}
     for chunk in batched(article_titles, chunk_size):
         continuation_token = None
         counter = 0
 
         while counter <= chunk_size:
-            articles_data, continuation_token = get_article_content_single(chunk, project, continuation_token)
+            articles_data, continuation_token = get_article_content_single(chunk, project, continuation_token, article_attributes, normalization_map)
             all_articles_data.extend(articles_data)
             
             if not continuation_token:
@@ -110,10 +131,12 @@ def get_article_content(article_titles, project = 'en.wikipedia.org'):
         if counter > chunk_size:
             raise RuntimeError("Attempt to retrieve all articles exceeded limit")
     
+    all_articles_data.sort(key=lambda x: x['rank'])
+
     return all_articles_data
 
 def is_legal_title(title):
-    forbidden_prefixes = ['מיוחד:', 'ויקיפדיה:', 'תבנית:', 'משתמש:']
+    forbidden_prefixes = ['מיוחד:', 'ויקיפדיה:', 'תבנית:', 'משתמש:', 'קטגוריה:', 'שיחה:', 'מדיה:']
     forbidden_titles = ['עמוד_ראשי']
 
     if title in forbidden_titles:
@@ -142,18 +165,23 @@ def main(output_path, max_articles):
                                     max_articles=max_articles)
 
     print(f"Fetched {len(top_articles)} articles")
+
     print(f"Filtering data...")
-    titles = []
+    article_attributes = {}
     for data in top_articles:
         title = data['title']
         if is_legal_title(title):
-            titles.append(data['title'])
+            article_attributes[title] = {
+                'rank': data['rank'],
+                'views': data['views']
+            }
         else:
             print(f" (-) Skipping {title}")
 
+    titles = list(article_attributes.keys())
     print(f"Skipped {len(top_articles) - len(titles)} articles, {len(titles)} remaining") 
     print("Reading article content...")
-    all_articles_data = get_article_content(titles, project = WIKI_PROJECT)
+    all_articles_data = get_article_content(article_attributes, project = WIKI_PROJECT)
     
     print("Dumping article content...")
     if (len(all_articles_data) > 0):
@@ -168,7 +196,7 @@ def main(output_path, max_articles):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Fetch top Wikipedia articles and dump to JSON")
     parser.add_argument("-o", "--output_file", required=True, type=json_file, help="Path to the output file")
-    parser.add_argument("-m", "--max_articles", default=1000, help="Maximum number of articles to fetch")
+    parser.add_argument("-m", "--max_articles", default=1000, type=int, help="Maximum number of articles to fetch")
     args = parser.parse_args()
     main(args.output_file, args.max_articles)
     

@@ -11,7 +11,9 @@ const DAILY_CHALLENGE_QUESTIONS = 20;
 type RawQuestion = {
     title: string,
     extract: string,
-    pageid: number
+    pageid: number,
+    views: number,
+    rank: number
 }
 
 type SolutionArrayMember = {
@@ -27,7 +29,9 @@ type ParsedQuestion = {
     solutionStripped: string,
     solutionArray: SolutionArrayMember[],
     index: number,
-    pageid: number
+    pageid: number,
+    views: number,
+    rank: number
 }
 
 interface GameProps {
@@ -280,6 +284,8 @@ function Description({ question, showFullDescription, showNewQuestion}: Descript
                     <a href={wikiPage} target="_BLANK" onClick={showNewQuestion} onAuxClick={showNewQuestion}>ויקיפדיה</a>
                 </Tooltip>, 
                 רשיון: <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA</a>
+                <br/>
+                מס' צפיות שלשום: {question.views}, דירוג: #{question.rank}
             </div>
         </div>
     )
@@ -774,14 +780,12 @@ function App(): JSX.Element {
             ];
 
             let rangeIndex = 0;
-            let selectedInCurrentRange = 0;
             let totalQuestionsReached = 0;
 
             for (let i = 0; i < dailyRanges.length; i++) {
                 totalQuestionsReached += dailyRanges[i].count;
                 if (correctIncorrectSequence.length < totalQuestionsReached) {
                     rangeIndex = i;
-                    selectedInCurrentRange = correctIncorrectSequence.length - (totalQuestionsReached - dailyRanges[i].count);
                     break;
                 }
             }
@@ -859,6 +863,8 @@ function App(): JSX.Element {
                 solutionStripped: solutionStripped,
                 index: randomIndex,
                 pageid: rawQuestion.pageid,
+                views: rawQuestion.views,
+                rank: rawQuestion.rank,
                 censoredDescription: censoredDescription,
             }
 
