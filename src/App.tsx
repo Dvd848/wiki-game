@@ -6,7 +6,7 @@ import OnScreenKeyboard from "./components/OnScreenKeyboard.tsx"
 import { Offcanvas, Modal } from "bootstrap"
 import './App.css'
 
-const DAILY_CHALLENGE_QUESTIONS = 20;
+const DAILY_CHALLENGE_QUESTIONS = 3;
 
 type RawQuestion = {
     title: string,
@@ -352,29 +352,40 @@ function DailyChallengeCompletion({ correctIncorrectSequence, numQuestionsCorrec
     const totalQuestions = correctIncorrectSequence.length;
     const points = calculatePoints(numQuestionsCorrect, totalQuestions - numQuestionsCorrect);
 
-    const handleShare = () => {
-        const shareText = generateShareText(correctIncorrectSequence, numQuestionsCorrect);
-        const textCopied = "התוצאה הועתקה ללוח הקיצורים!";
-        
-        if (navigator.share) {
-            navigator.share({
+    const handleShare = async () => {
+        const shareText = generateShareText(
+            correctIncorrectSequence,
+            numQuestionsCorrect
+        );
+
+        const textCopied = 'התוצאה הועתקה ללוח הקיצורים!';
+
+        try {
+            if (!navigator.share) throw new Error("No share support");
+
+            await navigator.share({
                 title: 'האתגר היומי של "מה הערך?"',
-                text: shareText
-            }).catch(err => {
-                // Fallback to clipboard if native share fails
-                console.error('Error sharing: ', err);
-                navigator.clipboard.writeText(shareText).then(() => {
-                    alert(textCopied);
-                });
+                text: shareText,
             });
-        } else {
-            // Fallback to clipboard
-            navigator.clipboard.writeText(shareText).then(() => {
+
+            onShare();
+            return;
+
+        } catch (err: any) {
+            // User cancelled: do nothing
+            if (err?.name === "AbortError") {
+                return;
+            }
+
+            // Real failure: fallback
+            try {
+                await navigator.clipboard.writeText(shareText);
                 alert(textCopied);
-            });
+                onShare();
+            } catch {
+                alert("שיתוף התוצאה נכשל");
+            }
         }
-        
-        onShare();
     };
 
     return (
