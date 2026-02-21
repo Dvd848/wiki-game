@@ -287,6 +287,7 @@ function Description({ question, showFullDescription, showNewQuestion}: Descript
                 <br/>
                 מס' צפיות שלשום: {question.views}, דירוג: #{question.rank}
             </div>
+            <div id="padding_div"> </div>
         </div>
     )
 }
