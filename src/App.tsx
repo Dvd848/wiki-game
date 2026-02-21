@@ -361,6 +361,7 @@ function DailyChallengeCompletion({ correctIncorrectSequence, numQuestionsCorrec
                 text: shareText
             }).catch(err => {
                 // Fallback to clipboard if native share fails
+                console.error('Error sharing: ', err);
                 navigator.clipboard.writeText(shareText).then(() => {
                     alert(textCopied);
                 });
