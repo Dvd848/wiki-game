@@ -785,11 +785,11 @@ function App(): JSX.Element {
         // Daily challenge selection logic
         if (isDailyChallenge && correctIncorrectSequence.length < DAILY_CHALLENGE_QUESTIONS) {
             const dailyRanges = [
-                { start: 0, end: 9, count: 2 },      // 2 from first 10
-                { start: 10, end: 19, count: 3 },    // 3 from 11-20
-                { start: 20, end: 49, count: 5 },    // 5 from 21-50
-                { start: 50, end: 99, count: 8 },    // 8 from 51-100
-                { start: 100, end: 199, count: 2 }   // 2 from 101-200
+                { start: 0,   end: 9,   count: 1  },  // 1 from first 10
+                { start: 10,  end: 19,  count: 1  },  // 1 from 11-20
+                { start: 20,  end: 49,  count: 3  },  // 3 from 21-50
+                { start: 50,  end: 99,  count: 10 },  // 10 from 51-100
+                { start: 100, end: 199, count: 10 }   // 10 from 101-200
             ];
 
             let rangeIndex = 0;
