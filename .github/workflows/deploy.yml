@@ -6,7 +6,6 @@ on:
   push:
     branches: ['main']
     paths-ignore:
-      - 'public/**'
       - 'utils/**'
       - README.md
 
