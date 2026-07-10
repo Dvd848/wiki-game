@@ -1,34 +1,70 @@
-name: Fetch Articles
+name: Fetch Articles and Deploy
 
 on:
   schedule:
     # Every day at 1AM
     - cron: '0 1 * * *'
+
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
 jobs:
-  run_script:
+  build_and_deploy:
     runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      # Generate articles
+      - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
-      - name: Install dependencies
-        run: |
-          pip install requests
+      - run: pip install requests
 
-      - name: Run Python script
+      - name: Generate articles
         run: python ./utils/fetch_articles.py -o ./public/top_articles.json
 
-      - name: Add and commit changes
+      # Commit changes if needed
+      - name: Commit changes
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add .
-          git commit -m "Auto-commit: Update articles"
-          git push
+          if git diff --quiet; then
+            echo "No changes."
+          else
+            git config --local user.email "action@github.com"
+            git config --local user.name "GitHub Action"
+            git add public/top_articles.json
+            git commit -m "Auto-commit: Update articles"
+            git push
+          fi
+
+      # Build site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm install
+      - run: npm run build
+
+      # Deploy
+      - uses: actions/configure-pages@v4
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
